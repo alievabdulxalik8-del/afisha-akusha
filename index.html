@@ -46,11 +46,12 @@ header{background:var(--paper);border-bottom:1px solid var(--line)}
    linear-gradient(45deg,var(--apricot) 25%,transparent 25%);
   background-size:14px 14px;background-position:0 0,0 0,7px 7px,7px 7px}
 .head{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between;padding:22px 0 18px}
-h1{font-family:var(--display);font-weight:700;font-size:clamp(22px,4vw,34px);line-height:1.15;margin:0;max-width:22ch}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(22px,4vw,34px);line-height:1.32;margin:0;max-width:22ch;padding-top:2px}
 .sub{color:var(--muted);margin:6px 0 0;max-width:60ch}
 .next{background:var(--soft);border-left:4px solid var(--accent);padding:10px 14px;border-radius:0 10px 10px 0;min-width:220px}
 .next small{display:block;color:var(--muted)}
 .next strong{display:block}
+.next .where{display:block;margin-top:6px;color:var(--accent);font-weight:600}
 
 nav.tabs{display:flex;gap:4px;overflow-x:auto;padding-bottom:0}
 nav.tabs button{background:none;border:0;border-bottom:3px solid transparent;padding:10px 14px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
@@ -367,6 +368,7 @@ function renderNext(){
   box.appendChild(el("small",{text:"Ближайшее"}));
   box.appendChild(el("strong",{text:dLabel(nx)+", "+nx.time}));
   box.appendChild(el("span",{text:nx.title}));
+  box.appendChild(el("small",{class:"where",text:VENUES[nx.venue].name}));
 }
 
 /* Afisha */
