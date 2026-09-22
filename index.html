@@ -131,6 +131,12 @@ textarea.inp{width:100%;min-height:120px}
 footer{color:var(--muted);font-size:14px;border-top:1px solid var(--line)}
 .snote{display:block;color:var(--muted);font-size:13px;margin-top:2px}
 .snote.warn{color:var(--warn)}
+.sync{margin:0 0 14px;padding:8px 12px;border-radius:10px;background:var(--soft);border:1px solid var(--line);font-size:14px;color:var(--muted)}
+.sync b{color:var(--ink)}
+.sync.bad{border-color:var(--warn);color:var(--warn)}
+.sync.bad b{color:var(--warn)}
+.sync .row{margin:8px 0 0}
+body.ro .x{opacity:.4}
 details.pickmulti{margin-top:10px}
 details.pickmulti>summary{list-style:none;display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:8px 14px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink);font-weight:600;font-size:15px;cursor:pointer}
 details.pickmulti>summary::-webkit-details-marker{display:none}
@@ -238,6 +244,18 @@ input.inp,textarea.inp,.search{-webkit-appearance:none;appearance:none}
 
 <main class="wrap">
 
+<p id="syncBar" class="sync" hidden></p>
+
+<div class="panel" id="gate" hidden>
+  <h2>Доступ по коду</h2>
+  <p class="hint">Школы, план и история хранятся в общей базе: что внесёт один, сразу видят остальные. Введите код доступа — он выдаётся организатору и специалисту управления образования. Код запомнится, вводить каждый раз не придётся.</p>
+  <div class="row">
+    <input class="inp" id="codeInput" type="text" inputmode="text" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="akusha-xxxx-xxxx" aria-label="Код доступа">
+    <button class="btn" id="codeBtn">Войти</button>
+  </div>
+  <p id="gateMsg" class="snote"></p>
+</div>
+
 <!-- AFISHA -->
 <section id="tab-afisha">
   <div class="filters" id="filters"></div>
@@ -323,9 +341,10 @@ input.inp,textarea.inp,.search{-webkit-appearance:none;appearance:none}
   </div>
   <div class="panel">
     <h2>Очистить данные</h2>
-    <p class="hint">Удалит на этом устройстве всё: список школ, количество мест, план и историю проведённых мероприятий. Восстановить будет нельзя.</p>
+    <p class="hint">Удалит всё из общей базы: список школ, количество мест, план и историю проведённых мероприятий. Данные пропадут у всех, кто пользуется этим кодом, и восстановить их будет нельзя.</p>
     <div class="row">
       <button class="btn ghost" id="resetBtn">Сбросить всё</button>
+      <button class="btn ghost" id="forgetBtn">Забыть код на этом устройстве</button>
       <span id="resetMsg"></span>
     </div>
   </div>
@@ -346,7 +365,7 @@ input.inp,textarea.inp,.search{-webkit-appearance:none;appearance:none}
 
 <footer class="wrap">
   Билеты продаются на kassir.ru, справки по телефону кассы +7 928 009-73-00. Места в залах и данные по школам заполняются вручную.
-  <span class="snote">Версия сайта: 22.09.2026-2 (выбор нескольких школ галочками, сквады, история, печать с QR-кодом).</span>
+  <span class="snote">Версия сайта: 22.09.2026-3 (общая база по коду доступа, сквады, история, печать с QR-кодом).</span>
 </footer>
 
 <script>
@@ -400,7 +419,12 @@ var START_SCHOOLS = [
  ["Шуктынская СОШ","Шукты"]
 ];
 
+var SB_URL = "https://hyjyfmgskcjijyyblvtg.supabase.co";
+var SB_KEY = "sb_publishable_IRpG1zauJd1OLm36YCB40w_gZr4emDL";
 var KEY = "akusha-pk-plan-v1";
+var CODE_KEY = "akusha-pk-code";
+var ACCESS = {code:null, role:null, label:null};
+var SYNC = {at:null, by:null, dirty:false, busy:false, err:null, conflict:null, timer:null};
 function freshState(){
   return {
     schools: START_SCHOOLS.map(function(s,i){return {id:"s"+(i+1), name:s[0], village:s[1], group:"", students:"", cards:""};}),
@@ -411,7 +435,8 @@ var S;
 try { var raw = localStorage.getItem(KEY); S = raw ? JSON.parse(raw) : freshState(); } catch(e){ S = freshState(); }
 if(!S || !S.schools){ S = freshState(); }
 S.seats=S.seats||{}; S.plan=S.plan||{}; S.history=S.history||[];
-function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
+function saveLocal(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
+function save(){ saveLocal(); pushState(); }
 
 function el(tag, attrs, kids){
   var n=document.createElement(tag);
@@ -448,14 +473,21 @@ function visitNote(schoolId){
 function todayStr(){ var t=new Date(); return t.getFullYear()+"-"+String(t.getMonth()+1).padStart(2,"0")+"-"+String(t.getDate()).padStart(2,"0"); }
 
 /* Tabs */
+var TABS=["afisha","schools","plan","history","data"];
+var CURTAB="afisha";
 var tabs=document.querySelectorAll("nav.tabs button");
-tabs.forEach(function(b){ b.addEventListener("click", function(){
-  tabs.forEach(function(x){ x.setAttribute("aria-selected", x===b?"true":"false"); });
-  ["afisha","schools","plan","history","data"].forEach(function(t){ document.getElementById("tab-"+t).hidden = (t!==b.dataset.tab); });
-  if(b.dataset.tab==="data") buildReport();
-  if(b.dataset.tab==="plan") renderPlan();
-  if(b.dataset.tab==="history") renderHistory();
-}); });
+function showTab(name){
+  CURTAB=name;
+  tabs.forEach(function(x){ x.setAttribute("aria-selected", x.dataset.tab===name?"true":"false"); });
+  var locked = (name!=="afisha" && !ACCESS.role);
+  document.getElementById("gate").hidden = !locked;
+  TABS.forEach(function(t){ document.getElementById("tab-"+t).hidden = locked || (t!==name); });
+  if(locked){ var ci=document.getElementById("codeInput"); if(ci) ci.focus(); return; }
+  if(name==="data") buildReport();
+  if(name==="plan") renderPlan();
+  if(name==="history") renderHistory();
+}
+tabs.forEach(function(b){ b.addEventListener("click", function(){ showTab(b.dataset.tab); }); });
 
 /* Next event box */
 function renderNext(){
@@ -561,6 +593,7 @@ function renderSchools(){
     tb.appendChild(tr);
   });
   schoolTotals();
+  applyReadOnly();
 }
 function schoolTotals(){
   var st=0, cd=0;
@@ -729,7 +762,7 @@ function renderPlan(){
   if(already) act.appendChild(el("span",{class:"ok",text:"В истории с "+ruDate(already.savedAt)}));
   body.appendChild(act);
 
-  renderSummary(); buildReport();
+  renderSummary(); buildReport(); applyReadOnly();
 }
 function saveToHistory(e, rows, existing){
   var rec={
@@ -746,7 +779,7 @@ function saveToHistory(e, rows, existing){
   save(); renderPlan(); renderHistory();
 }
 
-function renderHistory(){ renderHistKpis(); renderHistList(); renderHistSchools(); }
+function renderHistory(){ renderHistKpis(); renderHistList(); renderHistSchools(); applyReadOnly(); }
 
 function renderHistKpis(){
   var k=document.getElementById("histKpis"); k.textContent="";
@@ -962,7 +995,7 @@ function csv(){
 
 /* Сброс */
 document.getElementById("resetBtn").addEventListener("click",function(){
-  if(!confirm("Удалить школы, места, план и историю на этом устройстве? Отменить будет нельзя.")) return;
+  if(!confirm("Удалить школы, места, план и историю ИЗ ОБЩЕЙ БАЗЫ? Данные пропадут у всех, кто пользуется этим кодом. Отменить будет нельзя.")) return;
   S=freshState(); save(); renderAll();
   var m=document.getElementById("resetMsg"); m.className="ok"; m.textContent="Данные сброшены.";
 });
@@ -979,7 +1012,189 @@ function labelTables(){
 var _mo=new MutationObserver(function(){ _mo.disconnect(); labelTables(); _mo.observe(document.querySelector("main"),{childList:true,subtree:true}); });
 _mo.observe(document.querySelector("main"),{childList:true,subtree:true});
 function renderAll(){ renderNext(); renderAfisha(); renderSchools(); renderPlan(); renderHistory(); }
-renderAll(); labelTables();
+
+/* ---------- общая база ---------- */
+function api(fn, body, done){
+  var ok=true;
+  fetch(SB_URL+"/rest/v1/rpc/"+fn, {
+    method:"POST",
+    headers:{"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY,"Content-Type":"application/json"},
+    body:JSON.stringify(body)
+  }).then(function(r){
+    return r.text().then(function(t){
+      var j=null; try{ j=JSON.parse(t); }catch(e){}
+      return {status:r.status, body:j, raw:t};
+    });
+  }).then(function(res){ if(ok){ ok=false; done(null,res); } })
+    .catch(function(e){ if(ok){ ok=false; done(e||new Error("network")); } });
+}
+
+function applyServer(d){
+  if(d && Object.prototype.toString.call(d.schools)==="[object Array]"){
+    S={schools:d.schools, seats:d.seats||{}, plan:d.plan||{}, history:d.history||[]};
+    return true;
+  }
+  return false;
+}
+
+function pullState(done){
+  api("afisha_load", {p_code:ACCESS.code}, function(err,res){
+    if(err) return done({net:true});
+    var j=res.body;
+    if(!j || typeof j!=="object") return done({net:true});
+    if(j.ok!==true) return done({bad:true, error:j.error});
+    ACCESS.role=j.role; ACCESS.label=j.label;
+    SYNC.at=j.updated_at; SYNC.by=j.updated_by;
+    var had=applyServer(j.data);
+    done(null, {empty:!had});
+  });
+}
+
+function payload(){ return {schools:S.schools, seats:S.seats, plan:S.plan, history:S.history}; }
+
+function pushState(){
+  if(ACCESS.role!=="editor") return;
+  SYNC.dirty=true; SYNC.err=null; setSync();
+  clearTimeout(SYNC.timer);
+  SYNC.timer=setTimeout(doPush, 900);
+}
+
+function doPush(){
+  if(ACCESS.role!=="editor") return;
+  if(SYNC.busy){ clearTimeout(SYNC.timer); SYNC.timer=setTimeout(doPush,600); return; }
+  SYNC.busy=true; setSync();
+  api("afisha_save", {p_code:ACCESS.code, p_data:payload(), p_since:SYNC.at}, function(err,res){
+    SYNC.busy=false;
+    if(err){ SYNC.err="net"; setSync(); clearTimeout(SYNC.timer); SYNC.timer=setTimeout(doPush,6000); return; }
+    var j=res.body||{};
+    if(j.ok===true){ SYNC.at=j.updated_at; SYNC.by=j.updated_by; SYNC.dirty=false; SYNC.err=null; SYNC.conflict=null; setSync(); return; }
+    if(j.error==="conflict"){ SYNC.err="conflict"; SYNC.conflict=j; setSync(); return; }
+    if(j.error==="bad_code"){ SYNC.err="bad_code"; ACCESS.role=null; setSync(); showTab(CURTAB); return; }
+    SYNC.err=j.error||"error"; setSync();
+  });
+}
+
+function refreshFromServer(){
+  if(!ACCESS.role || SYNC.dirty || SYNC.busy || SYNC.conflict) return;
+  if(document.hidden) return;
+  var a=document.activeElement;
+  if(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return;
+  api("afisha_load", {p_code:ACCESS.code}, function(err,res){
+    if(err) return;
+    var j=res.body;
+    if(!j || j.ok!==true) return;
+    if(j.updated_at===SYNC.at) return;
+    SYNC.at=j.updated_at; SYNC.by=j.updated_by;
+    if(applyServer(j.data)){ saveLocal(); renderAll(); showTab(CURTAB); }
+    setSync();
+  });
+}
+
+function hhmm(iso){
+  try{ var d=new Date(iso); return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); }
+  catch(e){ return ""; }
+}
+
+function setSync(txt){
+  var bar=document.getElementById("syncBar");
+  if(!ACCESS.role){ bar.hidden=true; return; }
+  bar.hidden=false; bar.textContent=""; bar.className="sync";
+  if(SYNC.err==="conflict"){
+    bar.className="sync bad";
+    bar.appendChild(el("span",{text:"Данные изменил "+((SYNC.conflict&&SYNC.conflict.updated_by)||"коллега")+". Ваши изменения пока не сохранены."}));
+    bar.appendChild(el("div",{class:"row"},[
+      el("button",{class:"btn small",text:"Взять версию коллеги",onclick:function(){
+        var c=SYNC.conflict; SYNC.conflict=null; SYNC.err=null; SYNC.dirty=false;
+        SYNC.at=c.updated_at; SYNC.by=c.updated_by;
+        if(applyServer(c.data)){ saveLocal(); renderAll(); showTab(CURTAB); }
+        setSync();
+      }}),
+      el("button",{class:"btn ghost small",text:"Оставить мою",onclick:function(){
+        var c=SYNC.conflict; SYNC.conflict=null; SYNC.err=null;
+        SYNC.at=c.updated_at; doPush();
+      }})
+    ]));
+    return;
+  }
+  var who = ACCESS.role==="editor" ? "вы: "+ACCESS.label : "только просмотр — "+ACCESS.label;
+  var state;
+  if(SYNC.err==="net") state="нет связи, изменения не сохранены — пробую ещё раз";
+  else if(SYNC.err==="read_only") state="изменять нельзя, у вас доступ только на просмотр";
+  else if(SYNC.err==="bad_code") state="код перестал действовать, войдите заново";
+  else if(SYNC.busy||SYNC.dirty) state="сохраняю…";
+  else if(txt) state=txt;
+  else if(SYNC.at) state=(ACCESS.role==="editor"?"сохранено в ":"обновлено в ")+hhmm(SYNC.at)+((SYNC.by && SYNC.by!==ACCESS.label)?", изменил "+SYNC.by:"");
+  else state="загружено";
+  if(SYNC.err) bar.className="sync bad";
+  bar.appendChild(el("b",{text:"Общая база"}));
+  bar.appendChild(el("span",{text:" · "+who+" · "+state}));
+}
+
+function applyReadOnly(){
+  var ro = ACCESS.role==="viewer";
+  document.body.classList.toggle("ro", ro);
+  if(!ro) return;
+  var sel="#tab-schools input,#tab-schools textarea,#tab-schools button,"
+        + "#planBody input,#planBody select,#planBody button,#planSeats,"
+        + "#tab-history button.x,#resetBtn";
+  [].forEach.call(document.querySelectorAll(sel), function(e){ e.disabled=true; });
+}
+
+function gateMsg(t, cls){
+  var m=document.getElementById("gateMsg");
+  m.className="snote"+(cls?" "+cls:""); m.textContent=t||"";
+}
+
+function unlock(){
+  gateMsg("Проверяем код…");
+  pullState(function(err, info){
+    if(err && err.net){ gateMsg("Нет связи с интернетом. Проверьте подключение и нажмите «Войти» ещё раз.","warn"); return; }
+    if(err){
+      ACCESS.role=null;
+      try{ localStorage.removeItem(CODE_KEY); }catch(e){}
+      gateMsg("Такого кода нет. Проверьте, что он введён целиком и без лишних пробелов.","warn");
+      return;
+    }
+    try{ localStorage.setItem(CODE_KEY, ACCESS.code); }catch(e){}
+    gateMsg("");
+    if(info && info.empty && ACCESS.role==="editor"){
+      /* в базе пусто — переносим туда то, что уже есть на этом устройстве */
+      SYNC.dirty=true; clearTimeout(SYNC.timer); SYNC.timer=setTimeout(doPush,300);
+    }
+    saveLocal();
+    renderAll();
+    setSync();
+    showTab(CURTAB);
+  });
+}
+
+document.getElementById("codeBtn").addEventListener("click",function(){
+  var v=document.getElementById("codeInput").value.trim().toLowerCase();
+  if(!v){ gateMsg("Введите код.","warn"); return; }
+  ACCESS.code=v; unlock();
+});
+document.getElementById("codeInput").addEventListener("keydown",function(e){
+  if(e.key==="Enter"){ e.preventDefault(); document.getElementById("codeBtn").click(); }
+});
+document.getElementById("forgetBtn").addEventListener("click",function(){
+  if(!confirm("Забыть код на этом устройстве? Данные в общей базе останутся, но для входа код придётся ввести заново.")) return;
+  try{ localStorage.removeItem(CODE_KEY); }catch(e){}
+  ACCESS={code:null, role:null, label:null};
+  SYNC={at:null, by:null, dirty:false, busy:false, err:null, conflict:null, timer:null};
+  setSync(); showTab("afisha");
+});
+
+setInterval(refreshFromServer, 25000);
+window.addEventListener("focus", refreshFromServer);
+
+/* ---------- запуск ---------- */
+renderNext(); renderAfisha(); labelTables();
+(function(){
+  var stored=null;
+  try{ stored=localStorage.getItem(CODE_KEY); }catch(e){}
+  if(stored){ ACCESS.code=stored; unlock(); }
+  else { setSync(); showTab("afisha"); }
+})();
 })();
 </script>
 </body>
