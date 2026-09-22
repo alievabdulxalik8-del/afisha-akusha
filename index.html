@@ -131,6 +131,16 @@ textarea.inp{width:100%;min-height:120px}
 footer{color:var(--muted);font-size:14px;border-top:1px solid var(--line)}
 .snote{display:block;color:var(--muted);font-size:13px;margin-top:2px}
 .snote.warn{color:var(--warn)}
+details.pickmulti{margin-top:10px}
+details.pickmulti>summary{list-style:none;display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:8px 14px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink);font-weight:600;font-size:15px;cursor:pointer}
+details.pickmulti>summary::-webkit-details-marker{display:none}
+details.pickmulti>summary::before{content:"\2611";color:var(--accent);font-size:18px}
+details.pickmulti[open]>summary{border-color:var(--accent)}
+.multi{max-height:46vh;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:2px 12px;margin-top:10px;background:var(--soft)}
+.mrow{display:flex;gap:12px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer;min-height:44px}
+.mrow:last-child{border-bottom:0}
+.mrow input{width:22px;height:22px;flex:0 0 auto;margin:0}
+.mrow span{flex:1;line-height:1.35}
 .hist{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:10px}
 .hist h4{margin:0 0 2px;font-size:17px}
 #printWrap{max-width:1040px;margin:0 auto;padding:0 18px 40px}
@@ -336,7 +346,7 @@ input.inp,textarea.inp,.search{-webkit-appearance:none;appearance:none}
 
 <footer class="wrap">
   Билеты продаются на kassir.ru, справки по телефону кассы +7 928 009-73-00. Места в залах и данные по школам заполняются вручную.
-  <span class="snote">Версия сайта: 22.09.2026 (сквады школ, история мероприятий, печать с QR-кодом).</span>
+  <span class="snote">Версия сайта: 22.09.2026-2 (выбор нескольких школ галочками, сквады, история, печать с QR-кодом).</span>
 </footer>
 
 <script>
@@ -559,7 +569,9 @@ function schoolTotals(){
   document.getElementById("sumCards").textContent=cd;
   var filled=S.schools.filter(function(s){return s.cards!=="";}).length;
   var k=document.getElementById("schoolKpis"); k.textContent="";
-  [[S.schools.length,"школ в списке"],[filled+" из "+S.schools.length,"заполнено карт"],[st,"учащихся 14+"],[cd,"с Пушкинской картой"]].forEach(function(x){
+  var sq=[];
+  S.schools.forEach(function(s){ var g=groupOf(s); if(g && sq.indexOf(g)<0) sq.push(g); });
+  [[S.schools.length,"школ в списке"],[sq.length,"сквадов задано"],[filled+" из "+S.schools.length,"заполнено карт"],[st,"учащихся 14+"],[cd,"с Пушкинской картой"]].forEach(function(x){
     k.appendChild(el("div",{class:"kpi"},[el("b",{text:String(x[0])}),el("span",{text:x[1]})]));
   });
 }
@@ -634,8 +646,36 @@ function schoolPicker(excludeIds, onPick){
     } else onPick([v]);
   }});
   var box=el("div",{},[el("div",{class:"row"},[sel,btn])]);
+
+  /* выбор нескольких школ галочками — работает и без сквадов */
+  if(free.length){
+    var wrap=el("div",{class:"multi"});
+    free.slice().sort(function(a,b){
+      return (groupOf(a)+a.village+a.name).localeCompare(groupOf(b)+b.village+b.name,"ru");
+    }).forEach(function(s){
+      var cb=el("input",{type:"checkbox",value:s.id});
+      var g=groupOf(s), note=visitNote(s.id);
+      var txt=s.name+(s.village?" ("+s.village+")":"");
+      var sub=(g?"сквад: "+g:"без сквада")+(note?" · "+note:"");
+      wrap.appendChild(el("label",{class:"mrow"},[cb,
+        el("span",{},[el("span",{text:txt}), el("small",{class:"snote",text:sub})])]));
+    });
+    var addSel=el("button",{class:"btn small",text:"Добавить отмеченные",onclick:function(){
+      var ids=[];
+      [].forEach.call(wrap.querySelectorAll("input:checked"),function(i){ ids.push(i.value); });
+      if(!ids.length){ alert("Отметьте галочками хотя бы одну школу."); return; }
+      onPick(ids);
+    }});
+    var det=el("details",{class:"pickmulti"},[
+      el("summary",{text:"Отметить несколько школ галочками"}),
+      wrap,
+      el("div",{class:"row"},[addSel])
+    ]);
+    box.appendChild(det);
+  }
+
   if(!S.schools.some(function(s){ return groupOf(s); })){
-    box.appendChild(el("p",{class:"snote",text:"Чтобы добавлять школы группой, заполните поле «Сквад школ» во вкладке «Школы»: напишите одинаковое название у соседних сёл. Тогда здесь появится строка «Весь сквад»."}));
+    box.appendChild(el("p",{class:"note",text:"Сквадов пока нет. Сквад — это группа соседних сёл: откройте вкладку «Школы» и впишите одинаковое название, например «Бутри», в колонку «Сквад школ» у нескольких школ. После этого здесь появится строка «Весь сквад «Бутри»». Пока сквадов нет, несколько школ можно отметить галочками выше."}));
   }
   return box;
 }
