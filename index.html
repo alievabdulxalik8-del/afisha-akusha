@@ -144,7 +144,10 @@ footer{color:var(--muted);font-size:14px;border-top:1px solid var(--line)}
 .stop{display:flex;gap:12px;justify-content:space-between;align-items:baseline}
 .sname{flex:1;line-height:1.3}
 .snum{white-space:nowrap;font-weight:700;font-family:var(--display);font-size:15px}
-.sync{margin:0 0 14px;padding:8px 12px;border-radius:10px;background:var(--soft);border:1px solid var(--line);font-size:14px;color:var(--muted)}
+.sync{margin:0 0 14px;padding:8px 12px;border-radius:10px;background:var(--soft);border:1px solid var(--line);font-size:14px;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
+.sync[hidden]{display:none!important}
+.sync .who{flex:1 1 220px;min-width:0}
+.sync .out{flex:0 0 auto;margin-left:auto;padding:4px 12px;min-height:36px;white-space:nowrap}
 .sync b{color:var(--ink)}
 .sync.bad{border-color:var(--warn);color:var(--warn)}
 .sync.bad b{color:var(--warn)}
@@ -282,7 +285,12 @@ input.inp,textarea.inp,.search{-webkit-appearance:none;appearance:none}
 
 <div class="panel" id="gate" hidden>
   <h2>Доступ по коду</h2>
-  <p class="hint">Школы, план и история хранятся в общей базе: что внесёт один, сразу видят остальные. Введите код доступа — он выдаётся организатору и специалисту управления образования. Код запомнится, вводить каждый раз не придётся.</p>
+  <p class="hint">Данные хранятся в общей базе: что внесёт один, сразу видят остальные. Код определяет, что откроется:</p>
+  <ul class="hint" style="margin:0 0 12px;padding-left:20px">
+    <li><b>Код управления</b> — работа с сайтом: школы, план выездов, история, отчёты.</li>
+    <li><b>Код куратора</b> — только наблюдение: сводка по картам и выездам, кнопка отчёта.</li>
+  </ul>
+  <p class="hint">Код запомнится, вводить каждый раз не придётся. Сменить вход можно кнопкой «Выйти» вверху страницы.</p>
   <div class="row">
     <input class="inp" id="codeInput" type="text" inputmode="text" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="akusha-xxxx-xxxx" aria-label="Код доступа">
     <button class="btn" id="codeBtn">Войти</button>
@@ -432,7 +440,7 @@ input.inp,textarea.inp,.search{-webkit-appearance:none;appearance:none}
     <p class="hint">Удалит всё из общей базы: список школ, количество мест, план и историю проведённых мероприятий. Данные пропадут у всех, кто пользуется этим кодом, и восстановить их будет нельзя.</p>
     <div class="row">
       <button class="btn ghost" id="resetBtn">Сбросить всё</button>
-      <button class="btn ghost" id="forgetBtn">Забыть код на этом устройстве</button>
+      <button class="btn ghost" id="forgetBtn">Выйти и сменить код</button>
       <span id="resetMsg"></span>
     </div>
   </div>
@@ -453,7 +461,7 @@ input.inp,textarea.inp,.search{-webkit-appearance:none;appearance:none}
 
 <footer class="wrap">
   Билеты продаются на kassir.ru, справки по телефону кассы +7 928 009-73-00. Места в залах и данные по школам заполняются вручную.
-  <span class="snote">Версия сайта: 22.09.2026-9 (один адрес для всех, отчёт для куратора, резервная копия, остаток по картам, контакты школ, общая база по коду, сквады, история, печать с QR-кодом).</span>
+  <span class="snote">Версия сайта: 22.09.2026-10 (кнопка «Выйти», один адрес для всех, отчёт для куратора, резервная копия, остаток по картам, контакты школ, общая база по коду, сквады, история, печать с QR-кодом).</span>
 </footer>
 
 <script>
@@ -1531,6 +1539,25 @@ function hhmm(iso){
   catch(e){ return ""; }
 }
 
+function logout(){
+  try{ localStorage.removeItem(CODE_KEY); }catch(e){}
+  clearTimeout(SYNC.timer);
+  ACCESS={code:null, role:null, label:null};
+  SYNC={at:null, by:null, dirty:false, busy:false, err:null, conflict:null, timer:null};
+  document.querySelector("nav.tabs").hidden=false;
+  document.getElementById("syncBar").hidden=true;
+  document.body.classList.remove("ro");
+  CURTAB="schools";
+  showTab("schools");
+  var ci=document.getElementById("codeInput");
+  if(ci){ ci.value=""; try{ ci.focus(); }catch(e){} }
+  gateMsg("Введите код: управления — для работы, куратора — для наблюдения.");
+}
+
+function outBtn(){
+  return el("button",{class:"btn ghost out",text:"Выйти",title:"Сменить вход",onclick:logout});
+}
+
 function setSync(txt){
   var bar=document.getElementById("syncBar");
   if(!ACCESS.role){ bar.hidden=true; return; }
@@ -1542,8 +1569,10 @@ function setSync(txt){
     }
     var theirs=descr(sd), mine=descr(S);
     bar.className="sync bad";
-    bar.appendChild(el("b",{text:"Данные в базе изменил: "+(c.updated_by||"кто-то ещё")}));
-    bar.appendChild(el("span",{class:"snote",text:"В базе сейчас: "+theirs+". У вас на экране: "+mine+". Ваши изменения не сохранены — выберите, что оставить."}));
+    bar.appendChild(el("span",{class:"who"},[
+      el("b",{text:"Данные в базе изменил: "+(c.updated_by||"кто-то ещё")}),
+      el("span",{class:"snote",text:"В базе сейчас: "+theirs+". У вас на экране: "+mine+". Ваши изменения не сохранены — выберите, что оставить."})
+    ]));
     bar.appendChild(el("div",{class:"row"},[
       el("button",{class:"btn small",text:"Загрузить из базы",onclick:function(){
         var k=SYNC.conflict; SYNC.conflict=null; SYNC.err=null; SYNC.dirty=false;
@@ -1569,8 +1598,11 @@ function setSync(txt){
   else if(SYNC.at) state=(ACCESS.role==="editor"?"сохранено в ":"обновлено в ")+hhmm(SYNC.at)+((SYNC.by && SYNC.by!==ACCESS.label)?", изменил "+SYNC.by:"");
   else state="загружено";
   if(SYNC.err) bar.className="sync bad";
-  bar.appendChild(el("b",{text:"Общая база"}));
-  bar.appendChild(el("span",{text:" · "+who+" · "+state}));
+  bar.appendChild(el("span",{class:"who"},[
+    el("b",{text:"Общая база"}),
+    el("span",{text:" · "+who+" · "+state})
+  ]));
+  bar.appendChild(outBtn());
 }
 
 function applyReadOnly(){
@@ -1620,11 +1652,8 @@ document.getElementById("codeInput").addEventListener("keydown",function(e){
   if(e.key==="Enter"){ e.preventDefault(); document.getElementById("codeBtn").click(); }
 });
 document.getElementById("forgetBtn").addEventListener("click",function(){
-  if(!confirm("Забыть код на этом устройстве? Данные в общей базе останутся, но для входа код придётся ввести заново.")) return;
-  try{ localStorage.removeItem(CODE_KEY); }catch(e){}
-  ACCESS={code:null, role:null, label:null};
-  SYNC={at:null, by:null, dirty:false, busy:false, err:null, conflict:null, timer:null};
-  setSync(); showTab("afisha");
+  if(!confirm("Выйти и ввести другой код? Данные в общей базе останутся на месте.")) return;
+  logout();
 });
 
 document.getElementById("contactSearch").addEventListener("input", renderContacts);
