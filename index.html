@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Афиша по Пушкинской карте — Акушинский район</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EEF0F2; --paper:#FFFFFF; --ink:#1B232C; --muted:#5B6672; --line:#D5DAE0;
+  --accent:#9E2B25; --accent-ink:#FFFFFF; --apricot:#E2A13A; --ok:#2F7A4B; --warn:#B8541B;
+  --soft:#F5F6F8;
+  --display:"Unbounded","Golos Text",system-ui,sans-serif;
+  --body:"Golos Text",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#151B22; --paper:#1D252E; --ink:#E8ECEF; --muted:#9AA6B2; --line:#2E3844;
+    --accent:#E0685F; --accent-ink:#1B1010; --apricot:#EBB45A; --ok:#5FB981; --warn:#E8904F; --soft:#232C36;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#151B22; --paper:#1D252E; --ink:#E8ECEF; --muted:#9AA6B2; --line:#2E3844;
+  --accent:#E0685F; --accent-ink:#1B1010; --apricot:#EBB45A; --ok:#5FB981; --warn:#E8904F; --soft:#232C36;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5;-webkit-text-size-adjust:100%}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--accent)}
+:focus-visible{outline:3px solid var(--apricot);outline-offset:2px;border-radius:6px}
+.wrap{max-width:1040px;margin:0 auto;padding:0 18px}
+
+/* Header with carpet strip */
+header{background:var(--paper);border-bottom:1px solid var(--line)}
+.carpet{height:14px;background-color:var(--accent);
+  background-image:
+   linear-gradient(135deg,var(--apricot) 25%,transparent 25%),
+   linear-gradient(225deg,var(--apricot) 25%,transparent 25%),
+   linear-gradient(315deg,var(--apricot) 25%,transparent 25%),
+   linear-gradient(45deg,var(--apricot) 25%,transparent 25%);
+  background-size:14px 14px;background-position:0 0,0 0,7px 7px,7px 7px}
+.head{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between;padding:22px 0 18px}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(22px,4vw,34px);line-height:1.15;margin:0;max-width:22ch}
+.sub{color:var(--muted);margin:6px 0 0;max-width:60ch}
+.next{background:var(--soft);border-left:4px solid var(--accent);padding:10px 14px;border-radius:0 10px 10px 0;min-width:220px}
+.next small{display:block;color:var(--muted)}
+.next strong{display:block}
+
+nav.tabs{display:flex;gap:4px;overflow-x:auto;padding-bottom:0}
+nav.tabs button{background:none;border:0;border-bottom:3px solid transparent;padding:10px 14px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
+nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+
+main{padding:20px 0 60px}
+section[hidden]{display:none}
+
+/* Filters */
+.filters{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:18px}
+.chip{border:1px solid var(--line);background:var(--paper);border-radius:999px;padding:7px 14px;cursor:pointer;font-weight:500}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.search{flex:1 1 200px;min-width:0;border:1px solid var(--line);background:var(--paper);border-radius:10px;padding:8px 12px}
+select.inp,input.inp,textarea.inp{border:1px solid var(--line);background:var(--paper);border-radius:8px;padding:8px 10px;max-width:100%}
+input.num{width:84px}
+
+/* Month + events */
+.month{margin:26px 0 8px;font-family:var(--display);font-weight:500;font-size:15px;color:var(--muted);display:flex;align-items:center;gap:12px}
+.month::after{content:"";flex:1;height:1px;background:var(--line)}
+.ev{display:grid;grid-template-columns:86px 1fr auto;gap:0 18px;background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:10px}
+.date{text-align:center;border-right:1px solid var(--line);padding-right:14px}
+.date b{display:block;font-family:var(--display);font-weight:700;font-size:40px;line-height:1;color:var(--accent)}
+.date span{display:block;color:var(--muted);font-size:14px;margin-top:6px}
+.ev h3{margin:0 0 4px;font-size:18px;line-height:1.3}
+.place{color:var(--muted);font-size:14px;margin:0}
+.facts{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.tag{font-size:13px;padding:3px 9px;border-radius:6px;background:var(--soft);border:1px solid var(--line)}
+.tag.pk{background:var(--ok);color:#fff;border-color:var(--ok)}
+.tag.nopk{background:transparent;color:var(--warn);border-color:var(--warn)}
+details.more{margin-top:8px}
+details.more summary{cursor:pointer;color:var(--muted);font-size:14px}
+details.more p{margin:8px 0 0;max-width:70ch;font-size:15px}
+.side{display:flex;flex-direction:column;align-items:flex-end;gap:8px;min-width:150px;text-align:right}
+.price{font-weight:700;font-size:18px}
+.seatbar{width:150px}
+.seatbar small{display:block;color:var(--muted);font-size:13px}
+.bar{height:6px;background:var(--soft);border-radius:4px;overflow:hidden;margin-top:4px;border:1px solid var(--line)}
+.bar i{display:block;height:100%;background:var(--ok)}
+.bar i.over{background:var(--warn)}
+.btn{display:inline-block;border:0;background:var(--accent);color:var(--accent-ink);border-radius:10px;padding:8px 14px;font-weight:600;cursor:pointer;text-decoration:none}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn.small{padding:5px 10px;font-size:14px}
+.empty{padding:30px;text-align:center;color:var(--muted);background:var(--paper);border:1px dashed var(--line);border-radius:14px}
+
+@media (max-width:700px){
+  .ev{grid-template-columns:64px 1fr;gap:0 12px}
+  .date b{font-size:30px}
+  .date{padding-right:10px}
+  .side{grid-column:1 / -1;flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:space-between;text-align:left;margin-top:12px;min-width:0}
+  .seatbar{width:auto;flex:1 1 140px}
+}
+
+/* Panels / tables */
+.panel{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px}
+.panel h2{font-size:19px;margin:0 0 6px}
+.panel p.hint{color:var(--muted);margin:0 0 12px;max-width:70ch;font-size:15px}
+.note{background:var(--soft);border-left:4px solid var(--apricot);padding:10px 14px;border-radius:0 10px 10px 0;margin:0 0 16px;font-size:15px;max-width:80ch}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;min-width:640px}
+th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-align:middle;font-size:15px}
+th{font-weight:600;color:var(--muted);font-size:13px}
+td input.inp{width:100%;min-width:90px}
+td.n{text-align:right;white-space:nowrap}
+.totals td{font-weight:700;border-bottom:0}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:10px 0}
+.x{background:none;border:0;color:var(--muted);cursor:pointer;font-size:20px;line-height:1;padding:4px 8px}
+.warn{color:var(--warn);font-size:14px}
+.ok{color:var(--ok);font-size:14px}
+.kpis{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}
+.kpi{flex:1 1 150px;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.kpi b{display:block;font-family:var(--display);font-size:24px}
+.kpi span{color:var(--muted);font-size:14px}
+textarea.inp{width:100%;min-height:120px}
+.trip{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:10px}
+.trip h4{margin:0 0 4px}
+footer{color:var(--muted);font-size:14px;padding:20px 0 40px;border-top:1px solid var(--line)}
+
+/* iPhone fixes */
+input,select,textarea{font-size:16px!important}
+select.inp{-webkit-appearance:none;appearance:none;padding-right:28px;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 15px) 50%,calc(100% - 10px) 50%;background-size:5px 5px;background-repeat:no-repeat}
+input.inp,textarea.inp,.search{-webkit-appearance:none;appearance:none}
+.chip,.btn,nav.tabs button{min-height:44px}
+.x{min-width:44px;min-height:44px}
+@media (max-width:700px){
+  .wrap{padding:0 14px}
+  .head{padding:16px 0 12px}
+  .next{width:100%}
+  nav.tabs{display:grid;grid-template-columns:1fr 1fr;gap:0}
+  nav.tabs button{padding:10px 8px;font-size:15px;text-align:center}
+  .filters{gap:8px}
+  .filters select,.search{flex:1 1 100%}
+  .row{align-items:stretch}
+  .row > select,.row > input{flex:1 1 100%}
+  .row > .btn{flex:1 1 auto;text-align:center}
+  table{min-width:0}
+  thead{display:none}
+  table,tbody,tfoot,tr,td{display:block;width:100%}
+  tr{border:1px solid var(--line);border-radius:12px;padding:8px 10px;margin-bottom:10px;background:var(--paper)}
+  td{border:0;padding:4px 0;display:flex;align-items:center;gap:10px;justify-content:space-between;text-align:right}
+  td[data-l]::before{content:attr(data-l);color:var(--muted);font-size:13px;text-align:left;flex:0 0 40%}
+  td input.inp{width:auto;flex:1 1 auto;min-width:0}
+  td input.num{flex:0 0 100px}
+  td:empty{display:none}
+  td.n{text-align:right}
+  .totals{border-style:dashed}
+  .panel{padding:14px}
+  .trip{padding:10px}
+}
+@media print{
+  nav.tabs,.filters,.btn,.x,details.more summary,.carpet{display:none!important}
+  body{background:#fff;color:#000}
+  .ev,.panel{break-inside:avoid;border-color:#999}
+}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <div class="carpet" aria-hidden="true"></div>
+  <div class="wrap">
+    <div class="head">
+      <div>
+        <h1>Афиша по Пушкинской карте. Акушинский район</h1>
+        <p class="sub">Мероприятия домов культуры для планирования выездов школ: дата, время, места, цена и какие школы едут.</p>
+      </div>
+      <div class="next" id="nextBox"></div>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button role="tab" aria-selected="true" data-tab="afisha">Афиша</button>
+      <button role="tab" aria-selected="false" data-tab="schools">Школы</button>
+      <button role="tab" aria-selected="false" data-tab="plan">План выездов</button>
+      <button role="tab" aria-selected="false" data-tab="data">Отчёт и перенос</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+<!-- AFISHA -->
+<section id="tab-afisha">
+  <div class="filters" id="filters"></div>
+  <div id="eventList"></div>
+</section>
+
+<!-- SCHOOLS -->
+<section id="tab-schools" hidden>
+  <div class="kpis" id="schoolKpis"></div>
+  <div class="panel">
+    <h2>Школы района</h2>
+    <p class="hint">Стартовый список собран из открытых источников и может быть неполным. Добавьте недостающие школы и укажите, сколько учащихся 14 лет и старше и у скольких есть Пушкинская карта. Поле «Куст» помогает группировать соседние сёла для выездных мероприятий.</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Школа</th><th>Село</th><th>Куст</th><th>Учащихся 14+</th><th>С картой</th><th></th></tr></thead>
+      <tbody id="schoolRows"></tbody>
+      <tfoot><tr class="totals"><td colspan="3">Итого</td><td class="n" id="sumStud"></td><td class="n" id="sumCards"></td><td></td></tr></tfoot>
+    </table></div>
+    <div class="row">
+      <button class="btn" id="addSchool">Добавить школу</button>
+    </div>
+  </div>
+  <div class="panel">
+    <h2>Вставить список целиком</h2>
+    <p class="hint">Если список уже есть в Excel или Word: по одной школе в строке, через точку с запятой. Формат: <b>Школа; Село; Учащихся 14+; С картой</b>. Одинаковые названия обновятся, новые добавятся.</p>
+    <textarea class="inp" id="bulk" placeholder="Бутринская СОШ; Бутри; 45; 30"></textarea>
+    <div class="row"><button class="btn" id="bulkAdd">Добавить из списка</button><span id="bulkMsg" class="ok"></span></div>
+  </div>
+</section>
+
+<!-- PLAN -->
+<section id="tab-plan" hidden>
+  <div class="panel">
+    <h2>Кто едет на мероприятие</h2>
+    <p class="hint">Выберите мероприятие, укажите количество мест в зале и добавьте школы. Сайт посчитает, хватает ли мест и не больше ли учеников, чем карт у школы.</p>
+    <div class="row">
+      <select class="inp" id="planEvent" aria-label="Мероприятие"></select>
+      <label>Мест в зале <input class="inp num" type="number" min="0" id="planSeats"></label>
+    </div>
+    <div id="planBody"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Сводка по всем мероприятиям</h2>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Дата</th><th>Мероприятие</th><th>Мест</th><th>Едет</th><th>Школы</th></tr></thead>
+      <tbody id="summaryRows"></tbody>
+    </table></div>
+  </div>
+
+  <div class="panel">
+    <h2>Выездные мероприятия в отдалённые сёла</h2>
+    <p class="hint">Когда школы не могут доехать до Шукты или Бутри, коллектив может выехать сам и охватить несколько соседних школ за один раз. Здесь можно прикинуть такие выезды.</p>
+    <p class="note">Для оплаты Пушкинской картой выездное мероприятие нужно заводить в PRO.Культура отдельным событием с настоящим адресом и датой проведения. Если билеты продаются на Шукты, а показ идёт в другом селе, при проверке это выглядит как несоответствие, и организации могут выставить претензию.</p>
+    <div class="row">
+      <select class="inp" id="tripBase" aria-label="Программа"></select>
+      <input class="inp" id="tripVillage" placeholder="Село проведения">
+      <input class="inp" id="tripDate" type="date" aria-label="Дата">
+      <button class="btn" id="addTrip">Добавить выезд</button>
+    </div>
+    <div id="tripList"></div>
+  </div>
+</section>
+
+<!-- DATA -->
+<section id="tab-data" hidden>
+  <div class="panel">
+    <h2>Отчёт для рассылки</h2>
+    <p class="hint">Готовый текст с планом выездов. Его можно скопировать и отправить в WhatsApp или вставить в письмо.</p>
+    <textarea class="inp" id="report" readonly style="min-height:220px"></textarea>
+    <div class="row">
+      <button class="btn" id="selectReport">Выделить текст</button>
+      <button class="btn ghost" id="csvBtn" hidden>Скачать таблицу (CSV)</button>
+      <button class="btn ghost" id="printBtn">Распечатать</button>
+    </div>
+  </div>
+  <div class="panel">
+    <h2>Перенос данных на другое устройство</h2>
+    <p class="hint">Школы и план хранятся только в этом браузере. Чтобы продолжить на другом компьютере или передать коллеге, скопируйте код ниже и вставьте его там в это же поле.</p>
+    <textarea class="inp" id="transfer"></textarea>
+    <div class="row">
+      <button class="btn" id="exportBtn">Показать код</button>
+      <button class="btn ghost" id="importBtn">Загрузить из кода</button>
+      <button class="btn ghost" id="resetBtn">Сбросить всё</button>
+      <span id="transferMsg"></span>
+    </div>
+  </div>
+</section>
+
+</main>
+<footer class="wrap">
+  Билеты продаются на kassir.ru, справки по телефону кассы +7 928 009-73-00. Места в залах и данные по школам заполняются вручную.
+</footer>
+
+<script>
+(function(){
+"use strict";
+
+var VENUES = {
+  shukty:{name:"КДЦ Шукты", addr:"с. Шукты, ул. Центральная, 19"},
+  butri:{name:"ЦТКНР с. Бутри", addr:"с. Бутри, ул. Шилисала, 6"}
+};
+var K = "https://mkala.kassir.ru/obrazovanie/";
+var EVENTS = [
+ {id:"gortsy", date:"2026-09-30", wd:"ср", time:"15:00", title:"Жизнь и быт горцев. Фольклорная программа", venue:"shukty", age:"0+", price:300, pk:true, url:K+"jizn-i-byit-gortsev-folklornaya-programma", desc:"Знакомство с укладом горской семьи, старинной утварью и предметами быта, народными традициями повседневной жизни."},
+ {id:"osen", date:"2026-10-16", wd:"пт", time:"15:00", title:"Золотая осень", venue:"butri", age:"6+", price:400, pk:false, url:K+"zolotaya-osen", desc:"Выставка работ из природного материала. Описание отправлено на доработку, отметка Пушкинской карты пока снята."},
+ {id:"golosa", date:"2026-10-17", wd:"сб", time:"15:00", title:"Молодые голоса. Конкурс", venue:"shukty", age:"6+", price:300, pk:true, url:K+"molodyie-golosa-konkurs", desc:"Вокальный конкурс в номинациях: национальная песня, эстрадный вокал, патриотическая песня. Завершает программу хореографический коллектив."},
+ {id:"pozhilye", date:"2026-10-21", wd:"ср", time:"15:00", title:"Международный день пожилого человека", venue:"butri", age:"6+", price:400, pk:true, url:K+"mejdunarodnyiy-den-pojilogo-cheloveka", desc:"Встреча поколений: стихи на русском и даргинском, сценки из сельской жизни, рассказы старожилов."},
+ {id:"goryanka", date:"2026-10-30", wd:"пт", time:"15:00", title:"Конкурс национального костюма «Горянка»", venue:"shukty", age:"6+", price:300, pk:true, url:K+"konkurs-natsionalnogo-kostyuma-goryanka", desc:"Участники представляют костюмы народов Дагестана и рассказывают об их истории и элементах."},
+ {id:"druzhba", date:"2026-11-04", wd:"ср", time:"15:00", title:"Дружбой единой живёт край родной", venue:"shukty", age:"6+", price:300, pk:true, url:K+"drujboy-edinoy-jivyot-kray-rodnoy-kontsertnaya-programma", desc:"Концерт ко Дню народного единства: песни, танцы, национальные костюмы, выставка народных мастеров."},
+ {id:"pesni", date:"2026-11-23", wd:"пн", time:"15:00", title:"Песни и танцы моего села", venue:"butri", age:"6+", price:400, pk:true, url:K+"pesni-i-tantsyi-moego-sela", desc:"Песни на родном языке, даргинские танцы и танцы народов Дагестана."},
+ {id:"mama-butri", date:"2026-11-27", wd:"пт", time:"15:00", title:"Мама — главное слово в жизни твоей", venue:"butri", age:"6+", price:400, pk:true, url:K+"mama---glavnoe-slovo-v-jizni-tvoey", desc:"Программа ко Дню матери: песни, стихи и сценки учащихся и работников дома культуры."},
+ {id:"mama-shukty", date:"2026-11-28", wd:"сб", time:"15:00", title:"Мамино сердце. Концертная программа", venue:"shukty", age:"6+", price:300, pk:true, url:K+"mamino-serdtse-kontsertnaya-programma", desc:"Концерт ко Дню матери с участием коллективов КДЦ и учащихся Шуктынской школы."},
+ {id:"geroi-shukty", date:"2026-12-09", wd:"ср", time:"15:00", title:"Герои нашего времени. Концертная программа", venue:"shukty", age:"6+", price:300, pk:true, url:K+"geroi-nashego-vremeni-kontsertnaya-programma", desc:"Ко Дню Героев Отечества: музыка, стихи, видеоматериалы и рассказы военнослужащих — жителей района."},
+ {id:"geroi-butri", date:"2026-12-09", wd:"ср", time:"15:00", title:"День героев Отечества", venue:"butri", age:"6+", price:400, pk:true, url:K+"den-geroev-otechestva", desc:"Беседа «Героев помним по имени»: история праздника, государственные награды, герои-земляки."},
+ {id:"dva-sela", date:"2026-12-26", wd:"сб", time:"15:00", title:"Два села – одна сцена", venue:"shukty", age:"6+", price:300, pk:true, url:K+"dva-sela--odna-stsena-kontsertnaya-programma", desc:"Общий концерт коллективов Шукты, Гапшимы, Танты, Уллучары, Ургани и Дубри."},
+ {id:"skazka", date:"2026-12-30", wd:"ср", time:"15:00", title:"В гостях у сказки", venue:"butri", age:"6+", price:400, pk:false, url:K+"v-gostyah-u-skazki", desc:"Новогоднее театрализованное представление. Описание отправлено на доработку, отметка Пушкинской карты пока снята."}
+];
+var MONTHS = ["январь","февраль","март","апрель","май","июнь","июль","август","сентябрь","октябрь","ноябрь","декабрь"];
+var MONTHS_G = ["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
+
+var START_SCHOOLS = [
+ ["Акушинская СОШ №1 им. С.М. Кирова","Акуша"],
+ ["Акушинская СОШ №3","Акуша"],
+ ["Балхарская СОШ","Балхар"],
+ ["Бутринская СОШ им. Саидова М.Р.","Бутри"],
+ ["Гапшиминская СОШ им. М.А. Гасанова","Гапшима"],
+ ["Гебинская СОШ им. Абакарова Г.А.","Геба"],
+ ["Герхмахинская СОШ","Герхмахи"],
+ ["Камхамахинская СОШ","Верхний Камкамахи"],
+ ["Каршинская СОШ","Карша"],
+ ["Куркебимахинская ООШ","Куркаби"],
+ ["Куркинская ООШ","Куркимахи"],
+ ["Тантынская СОШ","Танты"],
+ ["Уллучаринская ООШ","Уллучара"],
+ ["Усишинская СОШ №2","Усиша"],
+ ["Усишинская СОШ №3","Усиша"],
+ ["Шуктынская СОШ","Шукты"]
+];
+
+var KEY = "akusha-pk-plan-v1";
+function freshState(){
+  return {
+    schools: START_SCHOOLS.map(function(s,i){return {id:"s"+(i+1), name:s[0], village:s[1], group:"", students:"", cards:""};}),
+    seats:{}, plan:{}, trips:[]
+  };
+}
+var S;
+try { var raw = localStorage.getItem(KEY); S = raw ? JSON.parse(raw) : freshState(); } catch(e){ S = freshState(); }
+if(!S || !S.schools){ S = freshState(); }
+S.seats=S.seats||{}; S.plan=S.plan||{}; S.trips=S.trips||[];
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
+
+function el(tag, attrs, kids){
+  var n=document.createElement(tag);
+  if(attrs) for(var k in attrs){
+    if(k==="text") n.textContent=attrs[k];
+    else if(k==="class") n.className=attrs[k];
+    else if(k.slice(0,2)==="on") n.addEventListener(k.slice(2), attrs[k]);
+    else n.setAttribute(k, attrs[k]);
+  }
+  (kids||[]).forEach(function(c){ if(c!=null) n.appendChild(typeof c==="string"?document.createTextNode(c):c); });
+  return n;
+}
+function num(v){ var n=parseInt(v,10); return isNaN(n)?0:n; }
+function evById(id){ for(var i=0;i<EVENTS.length;i++) if(EVENTS[i].id===id) return EVENTS[i]; return null; }
+function schoolById(id){ for(var i=0;i<S.schools.length;i++) if(S.schools[i].id===id) return S.schools[i]; return null; }
+function dParts(d){ var p=d.split("-"); return {y:+p[0], m:+p[1]-1, d:+p[2]}; }
+function dLabel(e){ var p=dParts(e.date); return p.d+" "+MONTHS_G[p.m]; }
+function planned(evId){ return (S.plan[evId]||[]).reduce(function(a,r){return a+num(r.count);},0); }
+function todayStr(){ var t=new Date(); return t.getFullYear()+"-"+String(t.getMonth()+1).padStart(2,"0")+"-"+String(t.getDate()).padStart(2,"0"); }
+
+/* Tabs */
+var tabs=document.querySelectorAll("nav.tabs button");
+tabs.forEach(function(b){ b.addEventListener("click", function(){
+  tabs.forEach(function(x){ x.setAttribute("aria-selected", x===b?"true":"false"); });
+  ["afisha","schools","plan","data"].forEach(function(t){ document.getElementById("tab-"+t).hidden = (t!==b.dataset.tab); });
+  if(b.dataset.tab==="data") buildReport();
+  if(b.dataset.tab==="plan") renderPlan();
+}); });
+
+/* Next event box */
+function renderNext(){
+  var t=todayStr(), nx=EVENTS.filter(function(e){return e.date>=t;})[0];
+  var box=document.getElementById("nextBox"); box.textContent="";
+  if(!nx){ box.appendChild(el("strong",{text:"Все мероприятия прошли"})); return; }
+  box.appendChild(el("small",{text:"Ближайшее"}));
+  box.appendChild(el("strong",{text:dLabel(nx)+", "+nx.time}));
+  box.appendChild(el("span",{text:nx.title}));
+}
+
+/* Afisha */
+var F={month:"all", venue:"all", pkOnly:false, q:""};
+function renderFilters(){
+  var f=document.getElementById("filters"); f.textContent="";
+  var months=[]; EVENTS.forEach(function(e){ var m=dParts(e.date).m; if(months.indexOf(m)<0) months.push(m); });
+  function chip(label, on, fn){ return el("button",{class:"chip","aria-pressed":on?"true":"false",text:label,onclick:fn}); }
+  f.appendChild(chip("Все месяцы",F.month==="all",function(){F.month="all";renderAfisha();}));
+  months.forEach(function(m){ f.appendChild(chip(MONTHS[m][0].toUpperCase()+MONTHS[m].slice(1),F.month===m,function(){F.month=m;renderAfisha();})); });
+  var vs=el("select",{class:"inp","aria-label":"Место проведения",onchange:function(){F.venue=this.value;renderAfisha();}},[
+    el("option",{value:"all",text:"Все площадки"}), el("option",{value:"shukty",text:"КДЦ Шукты"}), el("option",{value:"butri",text:"ЦТКНР Бутри"})]);
+  vs.value=F.venue; f.appendChild(vs);
+  f.appendChild(chip("Только по Пушкинской карте",F.pkOnly,function(){F.pkOnly=!F.pkOnly;renderAfisha();}));
+  var s=el("input",{class:"search",type:"search",placeholder:"Поиск по названию",value:F.q,"aria-label":"Поиск"});
+  s.addEventListener("input",function(){F.q=this.value;renderList();});
+  f.appendChild(s);
+}
+function renderAfisha(){ renderFilters(); renderList(); }
+function renderList(){
+  var box=document.getElementById("eventList"); box.textContent="";
+  var q=F.q.trim().toLowerCase();
+  var list=EVENTS.filter(function(e){
+    if(F.month!=="all" && dParts(e.date).m!==F.month) return false;
+    if(F.venue!=="all" && e.venue!==F.venue) return false;
+    if(F.pkOnly && !e.pk) return false;
+    if(q && e.title.toLowerCase().indexOf(q)<0) return false;
+    return true;
+  });
+  if(!list.length){ box.appendChild(el("div",{class:"empty",text:"По этим условиям мероприятий нет. Сбросьте фильтры, чтобы увидеть всё."})); return; }
+  var lastM=-1;
+  list.forEach(function(e){
+    var p=dParts(e.date);
+    if(p.m!==lastM){ lastM=p.m; box.appendChild(el("h2",{class:"month",text:MONTHS[p.m][0].toUpperCase()+MONTHS[p.m].slice(1)+" "+p.y})); }
+    var v=VENUES[e.venue];
+    var seats=num(S.seats[e.id]), pl=planned(e.id);
+    var seatBlock=el("div",{class:"seatbar"});
+    if(seats){
+      var pct=Math.min(100, Math.round(pl/seats*100));
+      seatBlock.appendChild(el("small",{text:"Мест: "+seats+", запланировано "+pl}));
+      var bi=el("i",{style:"width:"+pct+"%"}); if(pl>seats) bi.className="over";
+      seatBlock.appendChild(el("div",{class:"bar"},[bi]));
+    } else {
+      seatBlock.appendChild(el("small",{text:pl?("Мест: уточняется, запланировано "+pl):"Мест: уточняется"}));
+    }
+    var card=el("article",{class:"ev"},[
+      el("div",{class:"date"},[el("b",{text:String(p.d)}), el("span",{text:e.wd+", "+e.time})]),
+      el("div",{},[
+        el("h3",{text:e.title}),
+        el("p",{class:"place",text:v.name+", "+v.addr}),
+        el("div",{class:"facts"},[
+          el("span",{class:"tag"+(e.pk?" pk":" nopk"),text:e.pk?"Пушкинская карта":"Без Пушкинской карты"}),
+          el("span",{class:"tag",text:e.age})
+        ]),
+        el("details",{class:"more"},[el("summary",{text:"О программе"}), el("p",{text:e.desc})])
+      ]),
+      el("div",{class:"side"},[
+        el("span",{class:"price",text:"от "+e.price+" ₽"}),
+        seatBlock,
+        el("a",{class:"btn small",href:e.url,target:"_blank",rel:"noopener",text:"Страница билетов"})
+      ])
+    ]);
+    box.appendChild(card);
+  });
+}
+
+/* Schools */
+function renderSchools(){
+  var tb=document.getElementById("schoolRows"); tb.textContent="";
+  var st=0, cd=0;
+  S.schools.forEach(function(s){
+    st+=num(s.students); cd+=num(s.cards);
+    function inp(field, type, label){
+      var i=el("input",{class:"inp"+(type==="number"?" num":""),type:type,value:s[field]||"","aria-label":label});
+      if(type==="number") i.setAttribute("min","0");
+      i.addEventListener("change",function(){ s[field]=this.value.trim(); save(); renderSchools(); renderList(); });
+      return i;
+    }
+    var tr=el("tr",{},[
+      el("td",{},[inp("name","text","Название школы")]),
+      el("td",{},[inp("village","text","Село")]),
+      el("td",{},[inp("group","text","Куст")]),
+      el("td",{},[inp("students","number","Учащихся 14 лет и старше")]),
+      el("td",{},[inp("cards","number","С Пушкинской картой")]),
+      el("td",{},[el("button",{class:"x",title:"Удалить школу","aria-label":"Удалить "+s.name,text:"×",onclick:function(){
+        if(!confirm("Удалить «"+s.name+"» из списка и из плана?")) return;
+        S.schools=S.schools.filter(function(x){return x!==s;});
+        Object.keys(S.plan).forEach(function(k){ S.plan[k]=S.plan[k].filter(function(r){return r.schoolId!==s.id;}); });
+        S.trips.forEach(function(t){ t.schools=t.schools.filter(function(r){return r.schoolId!==s.id;}); });
+        save(); renderSchools(); renderList();
+      }})])
+    ]);
+    if(num(s.cards)>num(s.students) && s.students!==""){ tr.appendChild(el("td",{class:"warn",text:"карт больше, чем учащихся"})); }
+    tb.appendChild(tr);
+  });
+  document.getElementById("sumStud").textContent=st;
+  document.getElementById("sumCards").textContent=cd;
+  var filled=S.schools.filter(function(s){return s.cards!=="";}).length;
+  var k=document.getElementById("schoolKpis"); k.textContent="";
+  [[S.schools.length,"школ в списке"],[filled+" из "+S.schools.length,"заполнено карт"],[st,"учащихся 14+"],[cd,"с Пушкинской картой"]].forEach(function(x){
+    k.appendChild(el("div",{class:"kpi"},[el("b",{text:String(x[0])}),el("span",{text:x[1]})]));
+  });
+}
+function newId(){ return "s"+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+document.getElementById("addSchool").addEventListener("click",function(){
+  S.schools.push({id:newId(),name:"Новая школа",village:"",group:"",students:"",cards:""}); save(); renderSchools();
+  var rows=document.querySelectorAll("#schoolRows tr"); var last=rows[rows.length-1]; if(last){ var i=last.querySelector("input"); i.focus(); i.select(); }
+});
+document.getElementById("bulkAdd").addEventListener("click",function(){
+  var lines=document.getElementById("bulk").value.split(/\r?\n/), added=0, upd=0;
+  lines.forEach(function(l){
+    var p=l.split(/[;\t]/).map(function(x){return x.trim();}); if(!p[0]) return;
+    var ex=S.schools.filter(function(s){return s.name.toLowerCase()===p[0].toLowerCase();})[0];
+    if(ex){ if(p[1]) ex.village=p[1]; if(p[2]) ex.students=p[2]; if(p[3]) ex.cards=p[3]; upd++; }
+    else { S.schools.push({id:newId(),name:p[0],village:p[1]||"",group:"",students:p[2]||"",cards:p[3]||""}); added++; }
+  });
+  save(); renderSchools();
+  document.getElementById("bulkMsg").textContent="Добавлено: "+added+", обновлено: "+upd;
+});
+
+/* Plan */
+var curEv=EVENTS[0].id;
+function fillEventSelect(sel, withFree){
+  sel.textContent="";
+  EVENTS.forEach(function(e){ sel.appendChild(el("option",{value:e.id,text:dLabel(e)+" — "+e.title})); });
+  if(withFree) sel.appendChild(el("option",{value:"",text:"Другая программа"}));
+}
+var planSel=document.getElementById("planEvent"); fillEventSelect(planSel,false);
+planSel.addEventListener("change",function(){ curEv=this.value; renderPlan(); });
+document.getElementById("planSeats").addEventListener("change",function(){ S.seats[curEv]=this.value; save(); renderPlan(); renderList(); });
+
+function schoolPicker(excludeIds, onPick){
+  var sel=el("select",{class:"inp","aria-label":"Школа"});
+  sel.appendChild(el("option",{value:"",text:"Выберите школу"}));
+  S.schools.slice().sort(function(a,b){return (a.group+a.village).localeCompare(b.group+b.village,"ru");}).forEach(function(s){
+    if(excludeIds.indexOf(s.id)>=0) return;
+    var lbl=s.name+(s.village?" ("+s.village+")":"")+(s.cards!==""?", карт: "+s.cards:"");
+    sel.appendChild(el("option",{value:s.id,text:lbl}));
+  });
+  var btn=el("button",{class:"btn small",text:"Добавить",onclick:function(){ if(sel.value) onPick(sel.value); }});
+  return el("div",{class:"row"},[sel,btn]);
+}
+function rowsTable(rows, onChange){
+  var tb=el("tbody");
+  rows.forEach(function(r){
+    var s=schoolById(r.schoolId); if(!s) return;
+    var c=el("input",{class:"inp num",type:"number",min:"0",value:r.count||"","aria-label":"Сколько учеников"});
+    c.addEventListener("change",function(){ r.count=this.value; onChange(); });
+    var warnTxt = (s.cards!=="" && num(r.count)>num(s.cards)) ? "больше, чем карт у школы ("+s.cards+")" : "";
+    tb.appendChild(el("tr",{},[
+      el("td",{text:s.name}), el("td",{text:s.village||""}), el("td",{},[c]),
+      el("td",{class:"warn",text:warnTxt}),
+      el("td",{},[el("button",{class:"x",text:"×","aria-label":"Убрать "+s.name,onclick:function(){ rows.splice(rows.indexOf(r),1); onChange(); }})])
+    ]));
+  });
+  return el("div",{class:"tablewrap"},[el("table",{},[el("thead",{},[el("tr",{},[el("th",{text:"Школа"}),el("th",{text:"Село"}),el("th",{text:"Учеников"}),el("th",{text:""}),el("th",{text:""})])]),tb])]);
+}
+function renderPlan(){
+  planSel.value=curEv;
+  document.getElementById("planSeats").value=S.seats[curEv]||"";
+  var rows=S.plan[curEv]=S.plan[curEv]||[];
+  var body=document.getElementById("planBody"); body.textContent="";
+  var e=evById(curEv);
+  if(!e.pk) body.appendChild(el("p",{class:"note",text:"У этого мероприятия сейчас нет отметки Пушкинской карты. Оплатить картой не получится, пока описание не пройдёт модерацию."}));
+  if(rows.length) body.appendChild(rowsTable(rows,function(){ save(); renderPlan(); renderList(); }));
+  else body.appendChild(el("p",{class:"hint",text:"Пока ни одна школа не добавлена."}));
+  body.appendChild(schoolPicker(rows.map(function(r){return r.schoolId;}),function(id){
+    var s=schoolById(id); rows.push({schoolId:id,count:s&&s.cards!==""?s.cards:""}); save(); renderPlan(); renderList();
+  }));
+  var seats=num(S.seats[curEv]), pl=planned(curEv);
+  var msg = !seats ? el("p",{class:"hint",text:"Запланировано учеников: "+pl+". Укажите число мест, чтобы проверить вместимость."})
+    : (pl>seats ? el("p",{class:"warn",text:"Запланировано "+pl+" при "+seats+" местах: не хватает "+(pl-seats)+"."})
+                : el("p",{class:"ok",text:"Запланировано "+pl+" из "+seats+" мест, свободно "+(seats-pl)+"."}));
+  body.appendChild(msg);
+  renderSummary(); renderTrips();
+}
+function renderSummary(){
+  var tb=document.getElementById("summaryRows"); tb.textContent="";
+  EVENTS.forEach(function(e){
+    var rows=(S.plan[e.id]||[]); var names=rows.map(function(r){var s=schoolById(r.schoolId);return s?s.name+" ("+num(r.count)+")":"";}).filter(Boolean).join(", ");
+    var seats=num(S.seats[e.id]), pl=planned(e.id);
+    tb.appendChild(el("tr",{},[
+      el("td",{text:dLabel(e)}), el("td",{text:e.title}),
+      el("td",{class:"n",text:seats?String(seats):"—"}),
+      el("td",{class:"n"+(seats&&pl>seats?" warn":""),text:String(pl)}),
+      el("td",{text:names||"—"})
+    ]));
+  });
+}
+
+/* Trips */
+var tripBase=document.getElementById("tripBase"); fillEventSelect(tripBase,true);
+document.getElementById("addTrip").addEventListener("click",function(){
+  var v=document.getElementById("tripVillage").value.trim();
+  if(!v){ document.getElementById("tripVillage").focus(); return; }
+  var base=evById(tripBase.value);
+  S.trips.push({id:newId(), title: base?base.title:"Выездная программа", village:v, date:document.getElementById("tripDate").value, schools:[]});
+  document.getElementById("tripVillage").value=""; save(); renderTrips();
+});
+function renderTrips(){
+  var box=document.getElementById("tripList"); box.textContent="";
+  S.trips.forEach(function(t){
+    var total=t.schools.reduce(function(a,r){return a+num(r.count);},0);
+    var dt=t.date?(function(){var p=dParts(t.date);return p.d+" "+MONTHS_G[p.m];})():"дата не выбрана";
+    var card=el("div",{class:"trip"},[
+      el("div",{class:"row",style:"justify-content:space-between;margin:0"},[
+        el("h4",{text:t.title+" — с. "+t.village+", "+dt}),
+        el("button",{class:"x",text:"×","aria-label":"Удалить выезд",onclick:function(){ if(confirm("Удалить этот выезд?")){ S.trips=S.trips.filter(function(x){return x!==t;}); save(); renderTrips(); } }})
+      ])
+    ]);
+    if(t.schools.length) card.appendChild(rowsTable(t.schools,function(){ save(); renderTrips(); }));
+    card.appendChild(schoolPicker(t.schools.map(function(r){return r.schoolId;}),function(id){
+      var s=schoolById(id); t.schools.push({schoolId:id,count:s&&s.cards!==""?s.cards:""}); save(); renderTrips();
+    }));
+    card.appendChild(el("p",{class:"hint",text:"Охват: "+t.schools.length+" школ, "+total+" учеников."}));
+    box.appendChild(card);
+  });
+}
+
+/* Report */
+function buildReport(){
+  var out=["ПЛАН ВЫЕЗДОВ ШКОЛ ПО ПУШКИНСКОЙ КАРТЕ, Акушинский район",""];
+  EVENTS.forEach(function(e){
+    var rows=S.plan[e.id]||[]; if(!rows.length) return;
+    var seats=num(S.seats[e.id]);
+    out.push(dLabel(e)+", "+e.time+" — "+e.title);
+    out.push("Место: "+VENUES[e.venue].name+", "+VENUES[e.venue].addr+(seats?". Мест: "+seats:""));
+    rows.forEach(function(r){ var s=schoolById(r.schoolId); if(s) out.push("  • "+s.name+" — "+num(r.count)+" уч."); });
+    out.push("  Итого: "+planned(e.id)+" уч.");
+    out.push("Билеты: "+e.url); out.push("");
+  });
+  if(S.trips.length){
+    out.push("ВЫЕЗДНЫЕ МЕРОПРИЯТИЯ (нужна отдельная регистрация в PRO.Культура)");
+    S.trips.forEach(function(t){
+      out.push((t.date?dLabel({date:t.date})+" — ":"")+t.title+", с. "+t.village);
+      t.schools.forEach(function(r){ var s=schoolById(r.schoolId); if(s) out.push("  • "+s.name+" — "+num(r.count)+" уч."); });
+    });
+  }
+  if(out.length<=2) out.push("План пока пуст. Добавьте школы во вкладке «План выездов».");
+  document.getElementById("report").value=out.join("\n");
+}
+document.getElementById("selectReport").addEventListener("click",function(){ var t=document.getElementById("report"); t.focus(); t.select(); });
+document.getElementById("printBtn").addEventListener("click",function(){ try{ window.print(); }catch(e){} });
+
+function csv(){
+  var rows=[["Дата","Время","Мероприятие","Площадка","Мест","Школа","Село","Учеников"]];
+  EVENTS.forEach(function(e){
+    (S.plan[e.id]||[]).forEach(function(r){ var s=schoolById(r.schoolId); if(s) rows.push([e.date,e.time,e.title,VENUES[e.venue].name,S.seats[e.id]||"",s.name,s.village,num(r.count)]); });
+  });
+  return "\uFEFF"+rows.map(function(r){return r.map(function(c){c=String(c);return /[;"\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c;}).join(";");}).join("\r\n");
+}
+
+/* Transfer */
+var tmsg=document.getElementById("transferMsg");
+document.getElementById("exportBtn").addEventListener("click",function(){ var t=document.getElementById("transfer"); t.value=JSON.stringify(S); t.focus(); t.select(); tmsg.className="ok"; tmsg.textContent="Код выделен, скопируйте его."; });
+document.getElementById("importBtn").addEventListener("click",function(){
+  try{ var d=JSON.parse(document.getElementById("transfer").value); if(!d||!Array.isArray(d.schools)) throw 0;
+    S={schools:d.schools, seats:d.seats||{}, plan:d.plan||{}, trips:d.trips||[]}; save(); renderAll(); tmsg.className="ok"; tmsg.textContent="Данные загружены.";
+  }catch(e){ tmsg.className="warn"; tmsg.textContent="Код не распознан. Вставьте его целиком, от первой до последней фигурной скобки."; }
+});
+document.getElementById("resetBtn").addEventListener("click",function(){
+  if(!confirm("Удалить все внесённые школы, места и план на этом устройстве?")) return;
+  S=freshState(); save(); renderAll(); tmsg.className="ok"; tmsg.textContent="Данные сброшены.";
+});
+
+
+function labelTables(){
+  document.querySelectorAll("table").forEach(function(t){
+    var hs=[].map.call(t.querySelectorAll("thead th"),function(h){return h.textContent.trim();});
+    t.querySelectorAll("tbody tr").forEach(function(tr){
+      [].forEach.call(tr.children,function(td,i){ if(hs[i]) td.setAttribute("data-l",hs[i]); });
+    });
+  });
+}
+var _mo=new MutationObserver(function(){ _mo.disconnect(); labelTables(); _mo.observe(document.querySelector("main"),{childList:true,subtree:true}); });
+_mo.observe(document.querySelector("main"),{childList:true,subtree:true});
+function renderAll(){ renderNext(); renderAfisha(); renderSchools(); renderPlan(); }
+renderAll(); labelTables();
+
+/* Optional CSV download */
+if(window.claude && window.claude.use){
+  window.claude.use("downloads").then(function(dl){
+    if(!dl) return;
+    var b=document.getElementById("csvBtn"); b.hidden=false;
+    b.addEventListener("click",function(){
+      dl.save({filename:"plan-vyezdov-pushkinskaya-karta.csv", data:csv()}).catch(function(){});
+    });
+  }).catch(function(){});
+}
+})();
+</script>
+</body>
+</html>
