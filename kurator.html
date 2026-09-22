@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+<title>Наблюдение за выездами — Пушкинская карта, Акушинский район</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EEF0F2; --paper:#FFFFFF; --ink:#1B232C; --muted:#5B6672; --line:#D5DAE0;
+  --accent:#9E2B25; --apricot:#E2A13A; --ok:#2F7A4B; --warn:#B8541B; --soft:#F5F6F8;
+  --display:"Unbounded","Golos Text",system-ui,sans-serif;
+  --body:"Golos Text",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#151B22; --paper:#1D252E; --ink:#E8ECEF; --muted:#9AA6B2; --line:#2E3844;
+    --accent:#E0685F; --apricot:#EBB45A; --ok:#5FB981; --warn:#E8904F; --soft:#232C36;
+  }
+}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5;-webkit-text-size-adjust:100%}
+button,input{font:inherit;color:inherit}
+a{color:var(--accent)}
+:focus-visible{outline:3px solid var(--apricot);outline-offset:2px;border-radius:6px}
+.wrap{max-width:1040px;margin:0 auto;padding:0 18px}
+header{background:var(--paper);border-bottom:1px solid var(--line)}
+.carpet{height:14px;background-color:var(--accent);
+  background-image:linear-gradient(135deg,var(--apricot) 25%,transparent 25%),linear-gradient(225deg,var(--apricot) 25%,transparent 25%),linear-gradient(315deg,var(--apricot) 25%,transparent 25%),linear-gradient(45deg,var(--apricot) 25%,transparent 25%);
+  background-size:14px 14px;background-position:0 0,0 0,7px 7px,7px 7px}
+.head{padding:20px 0}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(21px,4vw,30px);line-height:1.32;margin:0;max-width:24ch}
+.sub{color:var(--muted);margin:8px 0 0;max-width:60ch}
+main.wrap{padding-top:22px;padding-bottom:60px}
+.panel{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px}
+.panel h2{font-size:19px;margin:0 0 6px}
+.panel p.hint{color:var(--muted);margin:0 0 12px;max-width:70ch;font-size:15px}
+.kpis{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}
+.kpi{flex:1 1 150px;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.kpi b{display:block;font-family:var(--display);font-size:24px;line-height:1.2}
+.kpi span{color:var(--muted);font-size:14px}
+.sync{margin:0 0 14px;padding:8px 12px;border-radius:10px;background:var(--soft);border:1px solid var(--line);font-size:14px;color:var(--muted);display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.sync b{color:var(--ink)}
+.sync.bad{border-color:var(--warn);color:var(--warn)}
+.ev{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:10px;background:var(--paper)}
+.ev h3{margin:0 0 2px;font-size:17px;line-height:1.3}
+.ev .meta{color:var(--muted);font-size:14px;margin:0}
+.ev ul{margin:10px 0 0;padding-left:20px}
+.ev li{margin:2px 0}
+.ev .tot{margin:8px 0 0;font-weight:700}
+.bar{height:8px;background:var(--soft);border-radius:4px;overflow:hidden;margin-top:8px;border:1px solid var(--line)}
+.bar i{display:block;height:100%;background:var(--ok)}
+.bar i.over{background:var(--warn)}
+.srow{padding:10px 0;border-bottom:1px solid var(--line)}
+.srow:last-child{border-bottom:0}
+.stop{display:flex;gap:12px;justify-content:space-between;align-items:baseline}
+.sname{flex:1;line-height:1.3}
+.snum{white-space:nowrap;font-weight:700;font-family:var(--display);font-size:15px}
+.chip{border:1px solid var(--line);background:var(--paper);border-radius:999px;padding:7px 14px;cursor:pointer;font-weight:500;min-height:44px}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.warn{color:var(--warn)}
+.ok{color:var(--ok)}
+.empty{padding:26px;text-align:center;color:var(--muted);background:var(--paper);border:1px dashed var(--line);border-radius:14px}
+.btn{display:inline-block;border:0;background:var(--accent);color:#fff;border-radius:10px;padding:8px 14px;font-weight:600;cursor:pointer;min-height:44px}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.inp{border:1px solid var(--line);background:var(--paper);border-radius:10px;padding:10px 12px;font-size:16px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:10px 0}
+.snote{display:block;color:var(--muted);font-size:13px;margin-top:4px}
+footer{color:var(--muted);font-size:14px;border-top:1px solid var(--line)}
+footer.wrap{padding-top:20px;padding-bottom:40px}
+@media (max-width:700px){
+  .wrap{padding:0 14px}
+  .panel{padding:14px}
+  .chip{flex:1 1 100%;text-align:center}
+}
+@media print{ .sync,.btn{display:none!important} body{background:#fff;color:#000} }
+</style>
+</head>
+<body>
+<header>
+  <div class="carpet" aria-hidden="true"></div>
+  <div class="wrap head">
+    <h1>Выезды школ по Пушкинской карте</h1>
+    <p class="sub">Акушинский район. Страница для наблюдения: что уже проведено, какие школы ездили и сколько детей. Изменить здесь ничего нельзя.</p>
+  </div>
+</header>
+
+<main class="wrap">
+
+<div class="panel" id="gate">
+  <h2>Вход по коду</h2>
+  <p class="hint">Введите код наблюдателя. Он запомнится, вводить каждый раз не придётся.</p>
+  <div class="row">
+    <input class="inp" id="codeInput" type="text" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="akusha-xxxx-xxxx" aria-label="Код доступа">
+    <button class="btn" id="codeBtn">Войти</button>
+  </div>
+  <p id="gateMsg" class="snote"></p>
+</div>
+
+<div id="app" hidden>
+  <p class="sync" id="syncBar"></p>
+  <div class="kpis" id="kpis"></div>
+
+  <div class="panel">
+    <h2>Проведённые мероприятия</h2>
+    <p class="hint">Отмечены организатором как состоявшиеся. Показано, какие школы приехали и сколько детей.</p>
+    <div id="doneList"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Запланировано</h2>
+    <p class="hint">Мероприятия, на которые школы уже записаны, но которые ещё не отмечены как проведённые.</p>
+    <div id="planList"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Охват по школам</h2>
+    <p class="hint">«Осталось» — сколько детей с Пушкинской картой из этой школы ещё не выезжали.</p>
+    <div class="row" id="schoolFilter"></div>
+    <div id="schoolList"></div>
+  </div>
+</div>
+
+</main>
+<footer class="wrap">
+  Билеты продаются на kassir.ru, справки по телефону кассы +7 928 009-73-00.
+  <span class="snote">Страница наблюдателя, версия 22.09.2026. Данные обновляются автоматически раз в минуту.</span>
+</footer>
+
+<script>
+(function(){
+"use strict";
+
+var SB_URL = "https://hyjyfmgskcjijyyblvtg.supabase.co";
+var SB_KEY = "sb_publishable_IRpG1zauJd1OLm36YCB40w_gZr4emDL";
+var CODE_KEY = "akusha-pk-watch-code";
+
+var VENUES = {
+  shukty:{name:"КДЦ Шукты", addr:"с. Шукты, ул. Центральная, 19"},
+  butri:{name:"ЦТКНР с. Бутри", addr:"с. Бутри, ул. Шилисала, 6"}
+};
+var K = "https://mkala.kassir.ru/obrazovanie/";
+var EVENTS = [
+ {id:"gortsy", date:"2026-09-30", wd:"ср", time:"15:00", title:"Жизнь и быт горцев. Фольклорная программа", venue:"shukty", age:"0+", price:300, pk:true, url:K+"jizn-i-byit-gortsev-folklornaya-programma", desc:"Знакомство с укладом горской семьи, старинной утварью и предметами быта, народными традициями повседневной жизни."},
+ {id:"osen", date:"2026-10-16", wd:"пт", time:"15:00", title:"Золотая осень", venue:"butri", age:"6+", price:400, pk:false, url:K+"zolotaya-osen", desc:"Выставка работ из природного материала. Описание отправлено на доработку, отметка Пушкинской карты пока снята."},
+ {id:"golosa", date:"2026-10-17", wd:"сб", time:"15:00", title:"Молодые голоса. Конкурс", venue:"shukty", age:"6+", price:300, pk:true, url:K+"molodyie-golosa-konkurs", desc:"Вокальный конкурс в номинациях: национальная песня, эстрадный вокал, патриотическая песня. Завершает программу хореографический коллектив."},
+ {id:"pozhilye", date:"2026-10-21", wd:"ср", time:"15:00", title:"Международный день пожилого человека", venue:"butri", age:"6+", price:400, pk:true, url:K+"mejdunarodnyiy-den-pojilogo-cheloveka", desc:"Встреча поколений: стихи на русском и даргинском, сценки из сельской жизни, рассказы старожилов."},
+ {id:"goryanka", date:"2026-10-30", wd:"пт", time:"15:00", title:"Конкурс национального костюма «Горянка»", venue:"shukty", age:"6+", price:300, pk:true, url:K+"konkurs-natsionalnogo-kostyuma-goryanka", desc:"Участники представляют костюмы народов Дагестана и рассказывают об их истории и элементах."},
+ {id:"druzhba", date:"2026-11-04", wd:"ср", time:"15:00", title:"Дружбой единой живёт край родной", venue:"shukty", age:"6+", price:300, pk:true, url:K+"drujboy-edinoy-jivyot-kray-rodnoy-kontsertnaya-programma", desc:"Концерт ко Дню народного единства: песни, танцы, национальные костюмы, выставка народных мастеров."},
+ {id:"pesni", date:"2026-11-23", wd:"пн", time:"15:00", title:"Песни и танцы моего села", venue:"butri", age:"6+", price:400, pk:true, url:K+"pesni-i-tantsyi-moego-sela", desc:"Песни на родном языке, даргинские танцы и танцы народов Дагестана."},
+ {id:"mama-butri", date:"2026-11-27", wd:"пт", time:"15:00", title:"Мама — главное слово в жизни твоей", venue:"butri", age:"6+", price:400, pk:true, url:K+"mama---glavnoe-slovo-v-jizni-tvoey", desc:"Программа ко Дню матери: песни, стихи и сценки учащихся и работников дома культуры."},
+ {id:"mama-shukty", date:"2026-11-28", wd:"сб", time:"15:00", title:"Мамино сердце. Концертная программа", venue:"shukty", age:"6+", price:300, pk:true, url:K+"mamino-serdtse-kontsertnaya-programma", desc:"Концерт ко Дню матери с участием коллективов КДЦ и учащихся Шуктынской школы."},
+ {id:"geroi-shukty", date:"2026-12-09", wd:"ср", time:"15:00", title:"Герои нашего времени. Концертная программа", venue:"shukty", age:"6+", price:300, pk:true, url:K+"geroi-nashego-vremeni-kontsertnaya-programma", desc:"Ко Дню Героев Отечества: музыка, стихи, видеоматериалы и рассказы военнослужащих — жителей района."},
+ {id:"geroi-butri", date:"2026-12-09", wd:"ср", time:"15:00", title:"День героев Отечества", venue:"butri", age:"6+", price:400, pk:true, url:K+"den-geroev-otechestva", desc:"Беседа «Героев помним по имени»: история праздника, государственные награды, герои-земляки."},
+ {id:"dva-sela", date:"2026-12-26", wd:"сб", time:"15:00", title:"Два села – одна сцена", venue:"shukty", age:"6+", price:300, pk:true, url:K+"dva-sela--odna-stsena-kontsertnaya-programma", desc:"Общий концерт коллективов Шукты, Гапшимы, Танты, Уллучары, Ургани и Дубри."},
+ {id:"skazka", date:"2026-12-30", wd:"ср", time:"15:00", title:"В гостях у сказки", venue:"butri", age:"6+", price:400, pk:false, url:K+"v-gostyah-u-skazki", desc:"Новогоднее театрализованное представление. Описание отправлено на доработку, отметка Пушкинской карты пока снята."}
+];
+var MONTHS = ["январь","февраль","март","апрель","май","июнь","июль","август","сентябрь","октябрь","ноябрь","декабрь"];
+var MONTHS_G = ["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
+
+var S = {schools:[], seats:{}, plan:{}, history:[]};
+var CODE = null, LABEL = "", AT = null, BY = null;
+
+function el(tag, attrs, kids){
+  var n=document.createElement(tag);
+  if(attrs) for(var k in attrs){
+    if(k==="text") n.textContent=attrs[k];
+    else if(k==="class") n.className=attrs[k];
+    else if(k.slice(0,2)==="on") n.addEventListener(k.slice(2), attrs[k]);
+    else n.setAttribute(k, attrs[k]);
+  }
+  (kids||[]).forEach(function(c){ if(c!=null) n.appendChild(typeof c==="string"?document.createTextNode(c):c); });
+  return n;
+}
+function num(v){ var n=parseInt(v,10); return isNaN(n)?0:n; }
+function dParts(d){ var p=String(d).split("-"); return {y:+p[0], m:+p[1]-1, d:+p[2]}; }
+function ruDate(iso){ var p=dParts(iso); return p.d+" "+MONTHS_G[p.m]+" "+p.y; }
+function todayStr(){ var t=new Date(); return t.getFullYear()+"-"+String(t.getMonth()+1).padStart(2,"0")+"-"+String(t.getDate()).padStart(2,"0"); }
+function hhmm(iso){ try{ var d=new Date(iso); return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); }catch(e){ return ""; } }
+function evById(id){ for(var i=0;i<EVENTS.length;i++) if(EVENTS[i].id===id) return EVENTS[i]; return null; }
+function schoolById(id){ for(var i=0;i<S.schools.length;i++) if(S.schools[i].id===id) return S.schools[i]; return null; }
+function plural(n,one,few,many){ var m=n%100; if(m>=11&&m<=14) return many; m=n%10; if(m===1) return one; if(m>=2&&m<=4) return few; return many; }
+
+function api(fn, body, done){
+  var fired=false;
+  fetch(SB_URL+"/rest/v1/rpc/"+fn, {
+    method:"POST",
+    headers:{"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY,"Content-Type":"application/json"},
+    body:JSON.stringify(body)
+  }).then(function(r){ return r.text().then(function(t){
+      var j=null; try{ j=JSON.parse(t); }catch(e){}
+      return j;
+    }); })
+    .then(function(j){ if(!fired){ fired=true; done(null,j); } })
+    .catch(function(e){ if(!fired){ fired=true; done(e||new Error("net")); } });
+}
+
+function gateMsg(t,cls){ var m=document.getElementById("gateMsg"); m.className="snote"+(cls?" "+cls:""); m.textContent=t||""; }
+
+function load(first){
+  if(first) gateMsg("Проверяем код…");
+  api("afisha_load", {p_code:CODE}, function(err,j){
+    if(err){
+      if(first) gateMsg("Нет связи с интернетом. Проверьте подключение и нажмите «Войти» ещё раз.","warn");
+      else syncBar("нет связи, показаны прежние данные", true);
+      return;
+    }
+    if(!j || j.ok!==true){
+      if(first){
+        try{ localStorage.removeItem(CODE_KEY); }catch(e){}
+        gateMsg("Такого кода нет. Проверьте, что он введён целиком и без лишних пробелов.","warn");
+      }
+      return;
+    }
+    LABEL=j.label||""; AT=j.updated_at; BY=j.updated_by;
+    var d=j.data||{};
+    S={schools:(d.schools||[]), seats:(d.seats||{}), plan:(d.plan||{}), history:(d.history||[])};
+    try{ localStorage.setItem(CODE_KEY, CODE); }catch(e){}
+    document.getElementById("gate").hidden=true;
+    document.getElementById("app").hidden=false;
+    render();
+  });
+}
+
+function syncBar(extra, bad){
+  var b=document.getElementById("syncBar");
+  b.textContent=""; b.className="sync"+(bad?" bad":"");
+  b.appendChild(el("b",{text:"Наблюдение"}));
+  b.appendChild(el("span",{text:"· "+(LABEL||"")+" · данные от "+(AT?hhmm(AT):"—")+(BY?" ("+BY+")":"")+(extra?" · "+extra:"")}));
+  b.appendChild(el("button",{class:"btn ghost",style:"padding:4px 10px;min-height:36px",text:"Обновить",onclick:function(){ load(false); }}));
+}
+
+function taken(id){
+  var n=0;
+  S.history.forEach(function(h){ (h.rows||[]).forEach(function(r){ if(r.schoolId===id) n+=num(r.count); }); });
+  return n;
+}
+function lastOf(id){
+  var last=null;
+  S.history.forEach(function(h){
+    var was=false; (h.rows||[]).forEach(function(r){ if(r.schoolId===id) was=true; });
+    if(was && (!last || h.date>last.date)) last=h;
+  });
+  return last;
+}
+
+function render(){
+  syncBar();
+  renderKpis();
+  renderDone();
+  renderPlanned();
+  renderSchools();
+}
+
+function renderKpis(){
+  var k=document.getElementById("kpis"); k.textContent="";
+  var pupils=0, ids=[];
+  S.history.forEach(function(h){ (h.rows||[]).forEach(function(r){
+    pupils+=num(r.count); if(ids.indexOf(r.schoolId)<0) ids.push(r.schoolId);
+  }); });
+  var cards=0;
+  S.schools.forEach(function(s){ cards+=num(s.cards); });
+  var pct = cards ? Math.round(pupils/cards*100) : 0;
+  [[S.history.length,"мероприятий проведено"],
+   [pupils,"детей съездило"],
+   [ids.length+" из "+S.schools.length,"школ охвачено"],
+   [cards?(pct+"%"):"—","охват карт: "+pupils+" из "+cards]
+  ].forEach(function(x){
+    k.appendChild(el("div",{class:"kpi"},[el("b",{text:String(x[0])}),el("span",{text:x[1]})]));
+  });
+}
+
+function evCard(title, meta, rows, seats){
+  var total=rows.reduce(function(a,r){ return a+num(r.count); },0);
+  var card=el("div",{class:"ev"},[ el("h3",{text:title}), el("p",{class:"meta",text:meta}) ]);
+  if(rows.length){
+    var ul=el("ul");
+    rows.slice().sort(function(a,b){ return num(b.count)-num(a.count); }).forEach(function(r){
+      var nm=r.name || (schoolById(r.schoolId)||{}).name || "Школа удалена";
+      var vl=r.village || (schoolById(r.schoolId)||{}).village || "";
+      ul.appendChild(el("li",{text:nm+(vl?" ("+vl+")":"")+" — "+num(r.count)+" "+plural(num(r.count),"ученик","ученика","учеников")}));
+    });
+    card.appendChild(ul);
+  } else {
+    card.appendChild(el("p",{class:"meta",text:"Школы пока не записаны."}));
+  }
+  card.appendChild(el("p",{class:"tot",text:"Итого: "+total+" "+plural(total,"ученик","ученика","учеников")+
+    (rows.length?" из "+rows.length+" "+plural(rows.length,"школы","школ","школ"):"")}));
+  if(seats){
+    var pct=Math.min(100, Math.round(total/seats*100));
+    var i=el("i",{style:"width:"+pct+"%"}); if(total>seats) i.className="over";
+    card.appendChild(el("div",{class:"bar"},[i]));
+    card.appendChild(el("span",{class:"snote",text: total>seats
+      ? ("Мест "+seats+", записано "+total+" — не хватает "+(total-seats))
+      : ("Мест "+seats+", свободно "+(seats-total))}));
+  }
+  return card;
+}
+
+function renderDone(){
+  var box=document.getElementById("doneList"); box.textContent="";
+  if(!S.history.length){
+    box.appendChild(el("div",{class:"empty",text:"Пока ни одно мероприятие не отмечено как проведённое."}));
+    return;
+  }
+  S.history.slice().sort(function(a,b){ return String(b.date).localeCompare(String(a.date)); }).forEach(function(h){
+    var v=VENUES[h.venue]||{name:"",addr:""};
+    box.appendChild(evCard(h.title, ruDate(h.date)+", "+h.time+" — "+v.name, h.rows||[], num(h.seats)));
+  });
+}
+
+function renderPlanned(){
+  var box=document.getElementById("planList"); box.textContent="";
+  var done={}; S.history.forEach(function(h){ done[h.eventId]=true; });
+  var any=false;
+  EVENTS.forEach(function(e){
+    var rows=S.plan[e.id]||[];
+    if(!rows.length || done[e.id]) return;
+    any=true;
+    var v=VENUES[e.venue]||{name:"",addr:""};
+    var rr=rows.map(function(r){
+      var s=schoolById(r.schoolId)||{};
+      return {schoolId:r.schoolId, name:s.name, village:s.village, count:r.count};
+    });
+    box.appendChild(evCard(e.title, ruDate(e.date)+", "+e.time+" — "+v.name, rr, num(S.seats[e.id])));
+  });
+  if(!any) box.appendChild(el("div",{class:"empty",text:"Ни на одно предстоящее мероприятие школы пока не записаны."}));
+}
+
+var FILTER="all";
+function renderSchools(){
+  var f=document.getElementById("schoolFilter"); f.textContent="";
+  function chip(id,label){
+    return el("button",{class:"chip","aria-pressed":FILTER===id?"true":"false",text:label,
+      onclick:function(){ FILTER=id; renderSchools(); }});
+  }
+  var all=S.schools.slice().map(function(s){
+    var t=taken(s.id), c=num(s.cards);
+    return {s:s, t:t, c:c, left:Math.max(0,c-t), last:lastOf(s.id)};
+  });
+  f.appendChild(chip("all","Все школы ("+all.length+")"));
+  f.appendChild(chip("went","Уже ездили ("+all.filter(function(r){return r.t>0;}).length+")"));
+  f.appendChild(chip("todo","Ещё не возили ("+all.filter(function(r){return r.t===0 && r.c>0;}).length+")"));
+
+  var list=all.filter(function(r){
+    if(FILTER==="went") return r.t>0;
+    if(FILTER==="todo") return r.t===0 && r.c>0;
+    return true;
+  }).sort(function(a,b){
+    if(b.t!==a.t) return b.t-a.t;
+    if(b.c!==a.c) return b.c-a.c;
+    return a.s.name.localeCompare(b.s.name,"ru");
+  });
+
+  var box=document.getElementById("schoolList"); box.textContent="";
+  if(!list.length){ box.appendChild(el("div",{class:"empty",text:"В этом списке пока никого нет."})); return; }
+
+  list.forEach(function(r){
+    var row=el("div",{class:"srow"},[
+      el("div",{class:"stop"},[
+        el("span",{class:"sname",text:r.s.name+(r.s.village?" ("+r.s.village+")":"")}),
+        el("span",{class:"snum",text:r.c?(r.t+" / "+r.c):"нет карт"})
+      ])
+    ]);
+    if(r.c){
+      var pct=Math.min(100, Math.round(r.t/r.c*100));
+      var i=el("i",{style:"width:"+pct+"%"}); if(r.t>r.c) i.className="over";
+      row.appendChild(el("div",{class:"bar"},[i]));
+    }
+    var tail;
+    if(!r.c) tail="Детей с Пушкинской картой нет — приглашать пока некого.";
+    else if(!r.t) tail="Ещё ни разу не выезжали.";
+    else if(r.left) tail="Осталось вывезти: "+r.left+". Последний выезд: "+ruDate(r.last.date)+" — "+r.last.title+".";
+    else tail="Все съездили. Последний выезд: "+ruDate(r.last.date)+" — "+r.last.title+".";
+    row.appendChild(el("span",{class:"snote"+(r.c&&!r.t?" warn":""),text:tail}));
+    box.appendChild(row);
+  });
+}
+
+document.getElementById("codeBtn").addEventListener("click",function(){
+  var v=document.getElementById("codeInput").value.trim().toLowerCase();
+  if(!v){ gateMsg("Введите код.","warn"); return; }
+  CODE=v; load(true);
+});
+document.getElementById("codeInput").addEventListener("keydown",function(e){
+  if(e.key==="Enter"){ e.preventDefault(); document.getElementById("codeBtn").click(); }
+});
+
+setInterval(function(){ if(CODE && !document.hidden) load(false); }, 60000);
+window.addEventListener("focus", function(){ if(CODE) load(false); });
+
+(function(){
+  var st=null; try{ st=localStorage.getItem(CODE_KEY); }catch(e){}
+  if(st){ CODE=st; load(true); }
+  else { document.getElementById("codeInput").focus(); }
+})();
+})();
+</script>
+</body>
+</html>

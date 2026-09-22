@@ -333,9 +333,9 @@ input.inp,textarea.inp,.search{-webkit-appearance:none;appearance:none}
   </div>
   <div class="panel">
     <h2>Посещаемость по школам</h2>
-    <p class="hint">Сверху — школы, которые уже выезжали, и когда это было. Ниже те, кто ещё ни разу: их удобно приглашать на следующее мероприятие.</p>
+    <p class="hint">Колонка «Осталось» показывает, сколько детей с картой из этой школы ещё не выезжали. Сверху — те, кто уже был, ниже — кого ещё не возили.</p>
     <div class="tablewrap"><table>
-      <thead><tr><th>Школа</th><th>Село</th><th>Раз была</th><th>Учеников всего</th><th>Последнее мероприятие</th></tr></thead>
+      <thead><tr><th>Школа</th><th>Село</th><th>Карт</th><th>Съездило</th><th>Осталось</th><th>Раз была</th><th>Последнее мероприятие</th></tr></thead>
       <tbody id="histSchools"></tbody>
     </table></div>
   </div>
@@ -381,7 +381,7 @@ input.inp,textarea.inp,.search{-webkit-appearance:none;appearance:none}
 
 <footer class="wrap">
   Билеты продаются на kassir.ru, справки по телефону кассы +7 928 009-73-00. Места в залах и данные по школам заполняются вручную.
-  <span class="snote">Версия сайта: 22.09.2026-5 (контакты школ, общая база по коду, сквады, история, печать с QR-кодом).</span>
+  <span class="snote">Версия сайта: 22.09.2026-6 (остаток по картам, контакты школ, общая база по коду, сквады, история, печать с QR-кодом).</span>
 </footer>
 
 <script>
@@ -482,9 +482,24 @@ function visits(schoolId){
   });
   return {n:n, last:last};
 }
+function taken(schoolId){
+  var n=0;
+  S.history.forEach(function(h){ h.rows.forEach(function(r){ if(r.schoolId===schoolId) n+=num(r.count); }); });
+  return n;
+}
+function cardsOf(schoolId){
+  var s=schoolById(schoolId);
+  return (s && s.cards!=="") ? num(s.cards) : null;
+}
+function leftOf(schoolId){
+  var c=cardsOf(schoolId);
+  return c===null ? null : Math.max(0, c-taken(schoolId));
+}
 function visitNote(schoolId){
-  var v=visits(schoolId);
-  return v.n ? "была "+v.n+" "+plural(v.n,"раз","раза","раз") : "";
+  var v=visits(schoolId), t=taken(schoolId), c=cardsOf(schoolId);
+  if(!v.n) return c===null ? "" : "ещё не была, карт "+c;
+  if(c===null) return "была "+v.n+" "+plural(v.n,"раз","раза","раз")+", съездило "+t;
+  return "съездило "+t+" из "+c+", осталось "+Math.max(0,c-t);
 }
 function todayStr(){ var t=new Date(); return t.getFullYear()+"-"+String(t.getMonth()+1).padStart(2,"0")+"-"+String(t.getDate()).padStart(2,"0"); }
 
@@ -684,7 +699,7 @@ function schoolPicker(excludeIds, onPick){
   var og2=el("optgroup",{label:groups.length?"Отдельные школы":"Школы"});
   free.slice().sort(function(a,b){return (a.group+a.village).localeCompare(b.group+b.village,"ru");}).forEach(function(s){
     var note=visitNote(s.id);
-    var lbl=s.name+(s.village?" ("+s.village+")":"")+(s.cards!==""?", карт: "+s.cards:"")+(note?" · "+note:" · ещё не была");
+    var lbl=s.name+(s.village?" ("+s.village+")":"")+(note?" · "+note:"");
     og2.appendChild(el("option",{value:s.id,text:lbl}));
   });
   sel.appendChild(og2);
@@ -862,11 +877,14 @@ function renderHistSchools(){
     if(a.n!==b.n) return b.n-a.n;
     return a.x.name.localeCompare(b.x.name,"ru");
   }).forEach(function(row){
+    var c=cardsOf(row.x.id), left=(c===null?null:Math.max(0,c-row.pupils));
     tb.appendChild(el("tr",{},[
       el("td",{text:row.x.name}),
       el("td",{text:row.x.village||"—"}),
-      el("td",{class:"n"+(row.n?"":" warn"),text:row.n?String(row.n):"ни разу"}),
+      el("td",{class:"n",text:c===null?"—":String(c)}),
       el("td",{class:"n",text:String(row.pupils)}),
+      el("td",{class:"n"+(left?" warn":""),text:left===null?"—":(left?String(left):"все съездили")}),
+      el("td",{class:"n"+(row.n?"":" warn"),text:row.n?String(row.n):"ни разу"}),
       el("td",{text:row.last?(ruDate(row.last.date)+" — "+row.last.title):""})
     ]));
   });
