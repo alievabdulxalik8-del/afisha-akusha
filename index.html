@@ -356,6 +356,15 @@ input.inp,textarea.inp,.search{-webkit-appearance:none;appearance:none}
     </div>
   </div>
   <div class="panel">
+    <h2>Резервная копия</h2>
+    <p class="hint">Скачивает один файл со всеми данными: школы, контакты, места, план и история проведённых мероприятий. Сохраните его на компьютере — это страховка на случай, если с общей базой что-то случится. Делайте копию хотя бы раз в месяц.</p>
+    <div class="row">
+      <button class="btn" id="backupBtn">Скачать резервную копию</button>
+      <span id="backupMsg" class="snote"></span>
+    </div>
+  </div>
+
+  <div class="panel">
     <h2>Очистить данные</h2>
     <p class="hint">Удалит всё из общей базы: список школ, количество мест, план и историю проведённых мероприятий. Данные пропадут у всех, кто пользуется этим кодом, и восстановить их будет нельзя.</p>
     <div class="row">
@@ -381,7 +390,7 @@ input.inp,textarea.inp,.search{-webkit-appearance:none;appearance:none}
 
 <footer class="wrap">
   Билеты продаются на kassir.ru, справки по телефону кассы +7 928 009-73-00. Места в залах и данные по школам заполняются вручную.
-  <span class="snote">Версия сайта: 22.09.2026-7 (афиша из общей базы, остаток по картам, контакты школ, общая база по коду, сквады, история, печать с QR-кодом).</span>
+  <span class="snote">Версия сайта: 22.09.2026-8 (резервная копия, афиша из общей базы, остаток по картам, контакты школ, общая база по коду, сквады, история, печать с QR-кодом).</span>
 </footer>
 
 <script>
@@ -1064,6 +1073,13 @@ function csv(){
   });
   return "\uFEFF"+rows.map(function(r){return r.map(function(c){c=String(c);return /[;"\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c;}).join(";");}).join("\r\n");
 }
+
+document.getElementById("backupBtn").addEventListener("click",function(){
+  var copy={saved:new Date().toISOString(), version:"afisha-akusha-1", data:payload()};
+  download("afisha-akusha-kopiya-"+todayStr()+".json", JSON.stringify(copy), "application/json");
+  var m=document.getElementById("backupMsg"); m.className="snote ok";
+  m.textContent="Школ: "+S.schools.length+", записей в истории: "+S.history.length+".";
+});
 
 /* Сброс */
 document.getElementById("resetBtn").addEventListener("click",function(){
