@@ -55,6 +55,7 @@ h1{font-family:var(--display);font-weight:700;font-size:clamp(22px,4vw,34px);lin
 .next .where{display:block;margin-top:6px;color:var(--accent);font-weight:600}
 
 nav.tabs{display:flex;gap:4px;overflow-x:auto;padding-bottom:0}
+nav.tabs[hidden]{display:none!important}
 nav.tabs button{background:none;border:0;border-bottom:3px solid transparent;padding:10px 14px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
 nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
 
@@ -114,6 +115,7 @@ details.more p{margin:8px 0 0;max-width:70ch;font-size:15px}
 table{border-collapse:collapse;width:100%;min-width:640px}
 th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-align:middle;font-size:15px}
 th{font-weight:600;color:var(--muted);font-size:13px}
+th.n{text-align:right}
 td input.inp{width:100%;min-width:90px}
 td.n{text-align:right;white-space:nowrap}
 .totals td{font-weight:700;border-bottom:0}
@@ -131,6 +133,17 @@ textarea.inp{width:100%;min-height:120px}
 footer{color:var(--muted);font-size:14px;border-top:1px solid var(--line)}
 .snote{display:block;color:var(--muted);font-size:13px;margin-top:2px}
 .snote.warn{color:var(--warn)}
+.wev{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:10px;background:var(--paper)}
+.wev h3{margin:0 0 2px;font-size:17px;line-height:1.3}
+.wev .meta{color:var(--muted);font-size:14px;margin:0}
+.wev ul{margin:10px 0 0;padding-left:20px}
+.wev li{margin:2px 0}
+.wev .tot{margin:8px 0 0;font-weight:700}
+.srow{padding:10px 0;border-bottom:1px solid var(--line)}
+.srow:last-child{border-bottom:0}
+.stop{display:flex;gap:12px;justify-content:space-between;align-items:baseline}
+.sname{flex:1;line-height:1.3}
+.snum{white-space:nowrap;font-weight:700;font-family:var(--display);font-size:15px}
 .sync{margin:0 0 14px;padding:8px 12px;border-radius:10px;background:var(--soft);border:1px solid var(--line);font-size:14px;color:var(--muted)}
 .sync b{color:var(--ink)}
 .sync.bad{border-color:var(--warn);color:var(--warn)}
@@ -206,6 +219,21 @@ input.inp,textarea.inp,.search{-webkit-appearance:none;appearance:none}
   .sheet td::before{content:none!important}
   .sheet td.n{text-align:right}
   .sheet .totals td{border-bottom:0}
+  .sheet table.rep{table-layout:fixed;width:100%;min-width:0}
+  .sheet table.rep th,.sheet table.rep td{padding:5px 3px;overflow-wrap:break-word}
+  .sheet table.sum{font-size:12px}
+  .sheet table.sum th:nth-child(1),.sheet table.sum td:nth-child(1){width:72%}
+  .sheet table.sum th:nth-child(2),.sheet table.sum td:nth-child(2){width:28%}
+  .sheet table.wide{font-size:10.5px}
+  .sheet table.wide th{white-space:normal;line-height:1.2}
+  .sheet table.wide td.n{white-space:nowrap}
+  .sheet table.wide .snote{font-size:9.5px;margin-top:1px}
+  .sheet table.wide th:nth-child(1),.sheet table.wide td:nth-child(1){display:none}
+  .sheet table.wide th:nth-child(2),.sheet table.wide td:nth-child(2){width:46%;-webkit-hyphens:auto;hyphens:auto}
+  .sheet table.wide th:nth-child(3),.sheet table.wide td:nth-child(3){width:13.5%}
+  .sheet table.wide th:nth-child(4),.sheet table.wide td:nth-child(4){width:13.5%}
+  .sheet table.wide th:nth-child(5),.sheet table.wide td:nth-child(5){width:13.5%}
+  .sheet table.wide th:nth-child(6),.sheet table.wide td:nth-child(6){width:13.5%}
   .sheet th:nth-child(1),.sheet td:nth-child(1){width:8%}
   .sheet th:nth-child(2),.sheet td:nth-child(2){width:41%}
   .sheet th:nth-child(3),.sheet td:nth-child(3){width:26%}
@@ -323,6 +351,41 @@ input.inp,textarea.inp,.search{-webkit-appearance:none;appearance:none}
 
 </section>
 
+<!-- WATCH: то, что видит наблюдатель -->
+<section id="tab-watch" hidden>
+  <div class="kpis" id="wKpis"></div>
+  <div class="row">
+    <button class="btn" id="wPrint">Распечатать отчёт</button>
+    <span class="snote" style="flex:1 1 100%">Сводка по выдаче карт и выездам одной страницей — можно распечатать или показать с экрана.</span>
+  </div>
+
+  <div class="panel">
+    <h2>Проведённые мероприятия</h2>
+    <p class="hint">Отмечены организатором как состоявшиеся: какие школы приехали и сколько детей.</p>
+    <div id="wDone"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Предстоящие мероприятия</h2>
+    <p class="hint">Всё, что ещё не отмечено как проведённое. Видно, записаны ли уже школы.</p>
+    <div id="wNext"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Выдача Пушкинских карт по школам</h2>
+    <p class="hint">Сколько детей 14–18 лет в школе и у скольких оформлена карта. Наверху — школы с наименьшим охватом.</p>
+    <div class="row" id="wCardFilter"></div>
+    <div id="wCardList"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Охват выездами по школам</h2>
+    <p class="hint">«Осталось» — сколько детей с картой из этой школы ещё не выезжали.</p>
+    <div class="row" id="wTripFilter"></div>
+    <div id="wTripList"></div>
+  </div>
+</section>
+
 <!-- HISTORY -->
 <section id="tab-history" hidden>
   <div class="kpis" id="histKpis"></div>
@@ -390,7 +453,7 @@ input.inp,textarea.inp,.search{-webkit-appearance:none;appearance:none}
 
 <footer class="wrap">
   Билеты продаются на kassir.ru, справки по телефону кассы +7 928 009-73-00. Места в залах и данные по школам заполняются вручную.
-  <span class="snote">Версия сайта: 22.09.2026-8 (резервная копия, афиша из общей базы, остаток по картам, контакты школ, общая база по коду, сквады, история, печать с QR-кодом).</span>
+  <span class="snote">Версия сайта: 22.09.2026-9 (один адрес для всех, отчёт для куратора, резервная копия, остаток по картам, контакты школ, общая база по коду, сквады, история, печать с QR-кодом).</span>
 </footer>
 
 <script>
@@ -514,10 +577,21 @@ function visitNote(schoolId){
 function todayStr(){ var t=new Date(); return t.getFullYear()+"-"+String(t.getMonth()+1).padStart(2,"0")+"-"+String(t.getDate()).padStart(2,"0"); }
 
 /* Tabs */
-var TABS=["afisha","schools","contacts","plan","history","data"];
+var TABS=["afisha","schools","contacts","plan","history","data","watch"];
 var CURTAB="afisha";
 var tabs=document.querySelectorAll("nav.tabs button");
 function showTab(name){
+  var nav=document.querySelector("nav.tabs");
+  if(ACCESS.role==="viewer"){
+    nav.hidden=true;
+    CURTAB="watch";
+    document.getElementById("gate").hidden=true;
+    TABS.forEach(function(t){ document.getElementById("tab-"+t).hidden = (t!=="watch"); });
+    renderWatch();
+    return;
+  }
+  nav.hidden=false;
+  if(name==="watch") name="afisha";
   CURTAB=name;
   tabs.forEach(function(x){ x.setAttribute("aria-selected", x.dataset.tab===name?"true":"false"); });
   var locked = (name!=="afisha" && !ACCESS.role);
@@ -945,12 +1019,13 @@ function sheetFor(h){
   return sheet;
 }
 
-function showPrint(h){
+function showSheet(node){
   var w=document.getElementById("printWrap"), a=document.getElementById("printArea");
-  a.textContent=""; a.appendChild(sheetFor(h));
+  a.textContent=""; a.appendChild(node);
   w.hidden=false;
   try{ w.scrollIntoView({behavior:"smooth",block:"start"}); }catch(e){ w.scrollIntoView(); }
 }
+function showPrint(h){ showSheet(sheetFor(h)); }
 document.getElementById("closePrint").addEventListener("click",function(){ document.getElementById("printWrap").hidden=true; });
 document.getElementById("doPrint").addEventListener("click",function(){
   document.body.classList.add("print-doc");
@@ -992,6 +1067,260 @@ function renderContacts(){
     box.appendChild(card);
   });
 }
+
+/* ================= наблюдатель ================= */
+function wTotals(){
+  var pupils=0, ids=[], st=0, cards=0, zero=0;
+  S.history.forEach(function(h){ (h.rows||[]).forEach(function(r){
+    pupils+=num(r.count); if(ids.indexOf(r.schoolId)<0) ids.push(r.schoolId);
+  }); });
+  S.schools.forEach(function(x){
+    var a=num(x.students), c=num(x.cards);
+    st+=a; cards+=c; if(a>0 && c===0) zero++;
+  });
+  return {pupils:pupils, went:ids.length, students:st, cards:cards,
+          noCards:Math.max(0,st-cards), zero:zero,
+          issue: st?Math.round(cards/st*100):0,
+          trips: cards?Math.round(pupils/cards*100):0};
+}
+
+function renderWatch(){ wKpis(); wDone(); wNext(); wCards(); wTrips(); }
+
+function wKpis(){
+  var k=document.getElementById("wKpis"); k.textContent="";
+  var t=wTotals();
+  [[t.students,"учащихся 14–18 лет"],
+   [t.cards,"выдано Пушкинских карт"],
+   [t.students?(t.issue+"%"):"—","охват картами · без карты "+t.noCards],
+   [S.history.length,"мероприятий проведено"],
+   [t.pupils,"детей съездило"],
+   [t.cards?(t.trips+"%"):"—","съездило от числа карт"],
+   [t.went+" из "+S.schools.length,"школ уже выезжали"],
+   [t.zero,"школ без единой карты"]
+  ].forEach(function(x){
+    k.appendChild(el("div",{class:"kpi"},[el("b",{text:String(x[0])}),el("span",{text:x[1]})]));
+  });
+}
+
+function wCard(title, meta, rows, seats){
+  var total=rows.reduce(function(a,r){ return a+num(r.count); },0);
+  var card=el("div",{class:"wev"},[ el("h3",{text:title}), el("p",{class:"meta",text:meta}) ]);
+  if(rows.length){
+    var ul=el("ul");
+    rows.slice().sort(function(a,b){ return num(b.count)-num(a.count); }).forEach(function(r){
+      var sc=schoolById(r.schoolId)||{};
+      var nm=r.name||sc.name||"Школа удалена", vl=r.village||sc.village||"";
+      ul.appendChild(el("li",{text:nm+(vl?" ("+vl+")":"")+" — "+num(r.count)+" "+plural(num(r.count),"ученик","ученика","учеников")}));
+    });
+    card.appendChild(ul);
+  } else card.appendChild(el("p",{class:"meta",text:"Школы пока не записаны."}));
+  card.appendChild(el("p",{class:"tot",text:"Итого: "+total+" "+plural(total,"ученик","ученика","учеников")+
+    (rows.length?" из "+rows.length+" "+plural(rows.length,"школы","школ","школ"):"")}));
+  if(seats){
+    var pct=Math.min(100, Math.round(total/seats*100));
+    var i=el("i",{style:"width:"+pct+"%"}); if(total>seats) i.className="over";
+    card.appendChild(el("div",{class:"bar"},[i]));
+    card.appendChild(el("span",{class:"snote",text: total>seats
+      ? ("Мест "+seats+", записано "+total+" — не хватает "+(total-seats))
+      : ("Мест "+seats+", свободно "+(seats-total))}));
+  }
+  return card;
+}
+
+function wDone(){
+  var box=document.getElementById("wDone"); box.textContent="";
+  if(!S.history.length){
+    box.appendChild(el("div",{class:"empty",text:"Пока ни одно мероприятие не отмечено как проведённое."}));
+    return;
+  }
+  S.history.slice().sort(function(a,b){ return String(b.date).localeCompare(String(a.date)); }).forEach(function(h){
+    var v=VENUES[h.venue]||{name:"",addr:""};
+    box.appendChild(wCard(h.title, ruDate(h.date)+", "+h.time+" — "+v.name, h.rows||[], num(h.seats)));
+  });
+}
+
+function wNext(){
+  var box=document.getElementById("wNext"); box.textContent="";
+  var done={}; S.history.forEach(function(h){ done[h.eventId]=true; });
+  var today=todayStr(), any=false;
+  EVENTS.slice().sort(function(a,b){ return String(a.date).localeCompare(String(b.date)); }).forEach(function(e){
+    if(done[e.id]) return;
+    any=true;
+    var rows=(S.plan[e.id]||[]).map(function(r){
+      var sc=schoolById(r.schoolId)||{};
+      return {schoolId:r.schoolId, name:sc.name, village:sc.village, count:r.count};
+    });
+    var v=VENUES[e.venue]||{name:"",addr:""};
+    var meta=ruDate(e.date)+", "+e.time+" — "+v.name+" · от "+e.price+" ₽ · "+(e.pk?"Пушкинская карта":"без Пушкинской карты");
+    var card=wCard(e.title, meta, rows, num(S.seats[e.id]));
+    if(e.date<today) card.appendChild(el("span",{class:"snote warn",text:"Дата прошла, а мероприятие не отмечено как проведённое."}));
+    else if(!e.pk) card.appendChild(el("span",{class:"snote warn",text:"Оплатить Пушкинской картой нельзя: описание не прошло модерацию."}));
+    box.appendChild(card);
+  });
+  if(!any) box.appendChild(el("div",{class:"empty",text:"Все мероприятия афиши уже отмечены как проведённые."}));
+}
+
+function wChip(cur,id,label,fn){
+  return el("button",{class:"chip","aria-pressed":cur===id?"true":"false",text:label,onclick:fn});
+}
+
+var WCARD="all";
+function wCards(){
+  var all=S.schools.map(function(x){
+    var a=num(x.students), c=num(x.cards);
+    return {s:x, a:a, c:c, left:Math.max(0,a-c), pct:a?Math.round(c/a*100):null};
+  });
+  var f=document.getElementById("wCardFilter"); f.textContent="";
+  function ch(id,label){ return wChip(WCARD,id,label,function(){ WCARD=id; wCards(); }); }
+  f.appendChild(ch("all","Все школы ("+all.length+")"));
+  f.appendChild(ch("zero","Без единой карты ("+all.filter(function(r){return r.a>0&&r.c===0;}).length+")"));
+  f.appendChild(ch("low","Охват ниже 50% ("+all.filter(function(r){return r.a>0&&r.pct<50;}).length+")"));
+  f.appendChild(ch("full","Полный охват ("+all.filter(function(r){return r.a>0&&r.pct>=100;}).length+")"));
+
+  var list=all.filter(function(r){
+    if(WCARD==="zero") return r.a>0 && r.c===0;
+    if(WCARD==="low")  return r.a>0 && r.pct<50;
+    if(WCARD==="full") return r.a>0 && r.pct>=100;
+    return true;
+  }).sort(function(x,y){
+    if(x.a===0 && y.a!==0) return 1;
+    if(y.a===0 && x.a!==0) return -1;
+    if(x.pct!==y.pct) return (x.pct||0)-(y.pct||0);
+    return y.left-x.left;
+  });
+
+  var box=document.getElementById("wCardList"); box.textContent="";
+  if(!list.length){ box.appendChild(el("div",{class:"empty",text:"В этом списке пока никого нет."})); return; }
+  list.forEach(function(r){
+    var row=el("div",{class:"srow"},[el("div",{class:"stop"},[
+      el("span",{class:"sname",text:r.s.name+(r.s.village?" ("+r.s.village+")":"")}),
+      el("span",{class:"snum",text:r.a?(r.c+" / "+r.a):"нет 14+"})])]);
+    if(r.a){
+      var i=el("i",{style:"width:"+Math.min(100,r.pct)+"%"});
+      if(r.pct<50) i.className="over";
+      row.appendChild(el("div",{class:"bar"},[i]));
+    }
+    var tail;
+    if(!r.a) tail="Учащихся 14–18 лет нет.";
+    else if(!r.c) tail="Карт не оформлено ни одной. Учащихся 14–18: "+r.a+".";
+    else if(r.left) tail="Охват "+r.pct+"%. Без карты ещё "+r.left+" "+plural(r.left,"ученик","ученика","учеников")+".";
+    else tail="Карты оформлены у всех.";
+    row.appendChild(el("span",{class:"snote"+((r.a&&r.pct<50)?" warn":""),text:tail}));
+    box.appendChild(row);
+  });
+}
+
+var WTRIP="all";
+function wTrips(){
+  var all=S.schools.map(function(x){
+    var t=taken(x.id), c=num(x.cards);
+    return {s:x, t:t, c:c, left:Math.max(0,c-t), last:visits(x.id).last};
+  });
+  var f=document.getElementById("wTripFilter"); f.textContent="";
+  function ch(id,label){ return wChip(WTRIP,id,label,function(){ WTRIP=id; wTrips(); }); }
+  f.appendChild(ch("all","Все школы ("+all.length+")"));
+  f.appendChild(ch("went","Уже ездили ("+all.filter(function(r){return r.t>0;}).length+")"));
+  f.appendChild(ch("todo","Ещё не возили ("+all.filter(function(r){return r.t===0&&r.c>0;}).length+")"));
+
+  var list=all.filter(function(r){
+    if(WTRIP==="went") return r.t>0;
+    if(WTRIP==="todo") return r.t===0 && r.c>0;
+    return true;
+  }).sort(function(a,b){
+    if(b.t!==a.t) return b.t-a.t;
+    if(b.c!==a.c) return b.c-a.c;
+    return a.s.name.localeCompare(b.s.name,"ru");
+  });
+
+  var box=document.getElementById("wTripList"); box.textContent="";
+  if(!list.length){ box.appendChild(el("div",{class:"empty",text:"В этом списке пока никого нет."})); return; }
+  list.forEach(function(r){
+    var row=el("div",{class:"srow"},[el("div",{class:"stop"},[
+      el("span",{class:"sname",text:r.s.name+(r.s.village?" ("+r.s.village+")":"")}),
+      el("span",{class:"snum",text:r.c?(r.t+" / "+r.c):"нет карт"})])]);
+    if(r.c){
+      var i=el("i",{style:"width:"+Math.min(100,Math.round(r.t/r.c*100))+"%"});
+      if(r.t>r.c) i.className="over";
+      row.appendChild(el("div",{class:"bar"},[i]));
+    }
+    var tail;
+    if(!r.c) tail="Детей с Пушкинской картой нет — приглашать пока некого.";
+    else if(!r.t) tail="Ещё ни разу не выезжали.";
+    else if(r.left) tail="Осталось вывезти: "+r.left+". Последний выезд: "+ruDate(r.last.date)+" — "+r.last.title+".";
+    else tail="Все съездили. Последний выезд: "+ruDate(r.last.date)+" — "+r.last.title+".";
+    row.appendChild(el("span",{class:"snote"+((r.c&&!r.t)?" warn":""),text:tail}));
+    box.appendChild(row);
+  });
+}
+
+function summarySheet(){
+  var t=wTotals();
+  var sheet=el("div",{class:"sheet"},[
+    el("h3",{text:"Пушкинская карта — Акушинский район"}),
+    el("p",{class:"meta",text:"Отчёт по состоянию на "+ruDate(todayStr())+" г."}),
+    el("p",{class:"meta",text:"Школ в районе: "+S.schools.length})
+  ]);
+
+  function block(head, pairs){
+    sheet.appendChild(el("p",{style:"margin:16px 0 4px;font-weight:700",text:head}));
+    var tb=el("tbody");
+    pairs.forEach(function(x){
+      tb.appendChild(el("tr",{},[el("td",{text:x[0]}), el("td",{class:"n",text:String(x[1])})]));
+    });
+    sheet.appendChild(el("div",{class:"tablewrap"},[el("table",{class:"rep sum"},[tb])]));
+  }
+
+  block("Выдача Пушкинских карт", [
+    ["Учащихся 14–18 лет", t.students],
+    ["Выдано Пушкинских карт", t.cards],
+    ["Охват картами", t.issue+"%"],
+    ["Не имеют карты", t.noCards],
+    ["Школ, где не оформлено ни одной карты", t.zero]
+  ]);
+
+  block("Выезды на мероприятия", [
+    ["Проведено мероприятий", S.history.length],
+    ["Детей съездило", t.pupils],
+    ["Школ участвовало", t.went+" из "+S.schools.length],
+    ["Съездило от числа выданных карт", t.trips+"%"]
+  ]);
+
+  sheet.appendChild(el("p",{style:"margin:18px 0 4px;font-weight:700",text:"По школам"}));
+  var tb=el("tbody");
+  S.schools.slice().map(function(x){
+    var a=num(x.students), c=num(x.cards);
+    return {s:x, a:a, c:c, pct:a?Math.round(c/a*100):null, t:taken(x.id)};
+  }).sort(function(a,b){ return a.s.name.localeCompare(b.s.name,"ru"); }).forEach(function(r,i){
+    tb.appendChild(el("tr",{},[
+      el("td",{class:"n",text:String(i+1)}),
+      el("td",{},[el("span",{text:r.s.name}),
+                  r.s.village?el("small",{class:"snote",text:r.s.village}):null]),
+      el("td",{class:"n",text:String(r.a)}),
+      el("td",{class:"n",text:String(r.c)}),
+      el("td",{class:"n",text:r.pct===null?"—":(r.pct+"%")}),
+      el("td",{class:"n",text:String(r.t)})
+    ]));
+  });
+  tb.appendChild(el("tr",{class:"totals"},[
+    el("td",{text:""}), el("td",{text:"ИТОГО"}),
+    el("td",{class:"n",text:String(t.students)}),
+    el("td",{class:"n",text:String(t.cards)}),
+    el("td",{class:"n",text:t.issue+"%"}),
+    el("td",{class:"n",text:String(t.pupils)})
+  ]));
+  sheet.appendChild(el("div",{class:"tablewrap"},[el("table",{class:"rep wide"},[
+    el("thead",{},[el("tr",{},[
+      el("th",{text:"№"}), el("th",{text:"Школа и село"}),
+      el("th",{class:"n",text:"14–18"}), el("th",{class:"n",text:"Карт"}), el("th",{class:"n",text:"Охват"}), el("th",{class:"n",text:"Съездило"})
+    ])]), tb
+  ])]));
+
+  sheet.appendChild(el("p",{class:"snote",style:"margin-top:14px",
+    text:"Данные внесены управлением культуры Акушинского района. Отчёт сформирован "+ruDate(todayStr())+" г."}));
+  return sheet;
+}
+
+document.getElementById("wPrint").addEventListener("click",function(){ showSheet(summarySheet()); });
 
 function renderSummary(){
   var tb=document.getElementById("summaryRows"); tb.textContent="";
@@ -1099,7 +1428,11 @@ function labelTables(){
 }
 var _mo=new MutationObserver(function(){ _mo.disconnect(); labelTables(); _mo.observe(document.querySelector("main"),{childList:true,subtree:true}); });
 _mo.observe(document.querySelector("main"),{childList:true,subtree:true});
-function renderAll(){ renderNext(); renderAfisha(); renderSchools(); renderContacts(); renderPlan(); renderHistory(); }
+function renderAll(){
+  renderNext(); renderAfisha();
+  if(ACCESS.role==="viewer"){ renderWatch(); return; }
+  renderSchools(); renderContacts(); renderPlan(); renderHistory();
+}
 
 /* ---------- общая база ---------- */
 function api(fn, body, done){
