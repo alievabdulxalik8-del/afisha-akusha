@@ -30,6 +30,8 @@
   --accent:#E0685F; --accent-ink:#1B1010; --apricot:#EBB45A; --ok:#5FB981; --warn:#E8904F; --soft:#232C36;
 }
 *,*::before,*::after{box-sizing:inherit}
+/* команда «скрыть» всегда сильнее любого display ниже по файлу */
+[hidden]{display:none!important}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5;-webkit-text-size-adjust:100%}
 button,input,select,textarea{font:inherit;color:inherit}
@@ -55,12 +57,10 @@ h1{font-family:var(--display);font-weight:700;font-size:clamp(22px,4vw,34px);lin
 .next .where{display:block;margin-top:6px;color:var(--accent);font-weight:600}
 
 nav.tabs{display:flex;gap:4px;overflow-x:auto;padding-bottom:0}
-nav.tabs[hidden]{display:none!important}
 nav.tabs button{background:none;border:0;border-bottom:3px solid transparent;padding:10px 14px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
 nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
 
 main.wrap{padding-top:22px;padding-bottom:60px}
-section[hidden]{display:none}
 
 /* Filters */
 .filters{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:18px}
@@ -145,7 +145,6 @@ footer{color:var(--muted);font-size:14px;border-top:1px solid var(--line)}
 .sname{flex:1;line-height:1.3}
 .snum{white-space:nowrap;font-weight:700;font-family:var(--display);font-size:15px}
 .sync{margin:0 0 14px;padding:8px 12px;border-radius:10px;background:var(--soft);border:1px solid var(--line);font-size:14px;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
-.sync[hidden]{display:none!important}
 .sync .who{flex:1 1 220px;min-width:0}
 .sync .out{flex:0 0 auto;margin-left:auto;padding:4px 12px;min-height:36px;white-space:nowrap}
 .sync b{color:var(--ink)}
@@ -171,7 +170,6 @@ details.pickmulti[open]>summary{border-color:var(--accent)}
 #contactSearch{width:100%;margin-bottom:4px}
 .hist h4{margin:0 0 2px;font-size:17px}
 #printWrap{max-width:1040px;margin:0 auto;padding:0 18px 40px}
-#printWrap[hidden]{display:none}
 .sheet{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:22px;margin-top:10px}
 .sheet h3{font-family:var(--display);font-weight:700;font-size:21px;line-height:1.3;margin:0 0 8px}
 .sheet .meta{color:var(--muted);margin:0 0 4px}
@@ -281,6 +279,7 @@ input.inp,textarea.inp,.search{-webkit-appearance:none;appearance:none}
 
 <main class="wrap">
 
+<p id="updBar" class="sync bad" hidden></p>
 <p id="syncBar" class="sync" hidden></p>
 
 <div class="panel" id="gate" hidden>
@@ -429,8 +428,11 @@ input.inp,textarea.inp,.search{-webkit-appearance:none;appearance:none}
   <div class="panel">
     <h2>Резервная копия</h2>
     <p class="hint">Скачивает один файл со всеми данными: школы, контакты, места, план и история проведённых мероприятий. Сохраните его на компьютере — это страховка на случай, если с общей базой что-то случится. Делайте копию хотя бы раз в месяц.</p>
+    <p class="hint">Кнопка «Восстановить из файла» заливает копию обратно в общую базу. Сайт сначала покажет, что в файле и что сейчас в базе, и спросит подтверждение.</p>
     <div class="row">
       <button class="btn" id="backupBtn">Скачать резервную копию</button>
+      <button class="btn ghost" id="restoreBtn">Восстановить из файла</button>
+      <input type="file" id="restoreFile" accept=".json,application/json" hidden>
       <span id="backupMsg" class="snote"></span>
     </div>
   </div>
@@ -461,7 +463,7 @@ input.inp,textarea.inp,.search{-webkit-appearance:none;appearance:none}
 
 <footer class="wrap">
   Билеты продаются на kassir.ru, справки по телефону кассы +7 928 009-73-00. Места в залах и данные по школам заполняются вручную.
-  <span class="snote">Версия сайта: 22.09.2026-10 (кнопка «Выйти», один адрес для всех, отчёт для куратора, резервная копия, остаток по картам, контакты школ, общая база по коду, сквады, история, печать с QR-кодом).</span>
+  <span class="snote" id="verLine"></span>
 </footer>
 
 <script>
@@ -515,6 +517,7 @@ var START_SCHOOLS = [
  ["Шуктынская СОШ","Шукты"]
 ];
 
+var SITE_VERSION = "2026-09-22-11";
 var SB_URL = "https://hyjyfmgskcjijyyblvtg.supabase.co";
 var SB_KEY = "sb_publishable_IRpG1zauJd1OLm36YCB40w_gZr4emDL";
 var KEY = "akusha-pk-plan-v1";
@@ -1411,16 +1414,52 @@ function csv(){
   return "\uFEFF"+rows.map(function(r){return r.map(function(c){c=String(c);return /[;"\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c;}).join(";");}).join("\r\n");
 }
 
+function bmsg(t,cls){ var m=document.getElementById("backupMsg"); m.className="snote"+(cls?" "+cls:""); m.textContent=t; }
+
+document.getElementById("restoreBtn").addEventListener("click",function(){
+  if(ACCESS.role!=="editor"){ bmsg("Восстанавливать может только управление.","warn"); return; }
+  document.getElementById("restoreFile").click();
+});
+
+document.getElementById("restoreFile").addEventListener("change",function(){
+  var f=this.files && this.files[0];
+  this.value="";
+  if(!f) return;
+  var rd=new FileReader();
+  rd.onerror=function(){ bmsg("Не удалось прочитать файл.","warn"); };
+  rd.onload=function(){
+    var j=null;
+    try{ j=JSON.parse(String(rd.result)); }catch(e){}
+    var d = j && (j.data && j.data.schools ? j.data : (j.schools ? j : null));
+    if(!d || Object.prototype.toString.call(d.schools)!=="[object Array]"){
+      bmsg("Это не похоже на резервную копию сайта. Нужен файл вида afisha-akusha-kopiya-….json","warn");
+      return;
+    }
+    var was = "сейчас в базе: "+S.schools.length+" школ, "+S.history.length+" в истории";
+    var now = "в файле: "+d.schools.length+" школ, "+((d.history||[]).length)+" в истории";
+    if(!confirm("Восстановить данные из файла?\n\n"+now+"\n"+was+"\n\nТо, что сейчас в общей базе, будет заменено у всех.")) return;
+    S = {schools:d.schools, seats:d.seats||{}, plan:d.plan||{}, history:d.history||[]};
+    save();
+    renderAll(); showTab(CURTAB);
+    bmsg("Восстановлено: "+S.schools.length+" школ, "+S.history.length+" в истории.","ok");
+  };
+  rd.readAsText(f, "utf-8");
+});
+
 document.getElementById("backupBtn").addEventListener("click",function(){
   var copy={saved:new Date().toISOString(), version:"afisha-akusha-1", data:payload()};
   download("afisha-akusha-kopiya-"+todayStr()+".json", JSON.stringify(copy), "application/json");
-  var m=document.getElementById("backupMsg"); m.className="snote ok";
-  m.textContent="Школ: "+S.schools.length+", записей в истории: "+S.history.length+".";
+  bmsg("Школ: "+S.schools.length+", записей в истории: "+S.history.length+".","ok");
 });
 
 /* Сброс */
 document.getElementById("resetBtn").addEventListener("click",function(){
-  if(!confirm("Удалить школы, места, план и историю ИЗ ОБЩЕЙ БАЗЫ? Данные пропадут у всех, кто пользуется этим кодом. Отменить будет нельзя.")) return;
+  var w=prompt("Это сотрёт школы, план и историю ИЗ ОБЩЕЙ БАЗЫ — у всех сразу, без возможности вернуть.\n\nЕсли уверены, впишите слово:  удалить");
+  if(w===null) return;
+  if(w.trim().toLowerCase()!=="удалить"){
+    var m0=document.getElementById("resetMsg"); m0.className="warn"; m0.textContent="Слово не совпало, ничего не удалено.";
+    return;
+  }
   S=freshState(); save(); renderAll();
   var m=document.getElementById("resetMsg"); m.className="ok"; m.textContent="Данные сброшены.";
 });
@@ -1467,7 +1506,22 @@ function applyServer(d){
 }
 
 /* афиша хранится в базе отдельной строкой; встроенный список — запасной */
+function checkVersion(af){
+  var want = af && af.site && af.site.version;
+  var bar = document.getElementById("updBar");
+  if(!want || want===SITE_VERSION){ bar.hidden=true; return; }
+  bar.hidden=false; bar.textContent="";
+  bar.appendChild(el("span",{class:"who"},[
+    el("b",{text:"Вышла новая версия сайта"}),
+    el("span",{class:"snote",text:"У вас "+SITE_VERSION+", доступна "+want+". Нажмите «Обновить» — страница перезагрузится свежей."})
+  ]));
+  bar.appendChild(el("button",{class:"btn out",text:"Обновить",onclick:function(){
+    location.replace(location.pathname+"?v="+encodeURIComponent(want));
+  }}));
+}
+
 function applyAfisha(af){
+  checkVersion(af);
   if(!af || !af.events || !af.events.length) return false;
   EVENTS = af.events;
   if(af.venues) VENUES = af.venues;
@@ -1662,6 +1716,7 @@ setInterval(refreshFromServer, 25000);
 window.addEventListener("focus", refreshFromServer);
 
 /* ---------- запуск ---------- */
+document.getElementById("verLine").textContent="Версия сайта: "+SITE_VERSION;
 renderNext(); renderAfisha(); labelTables();
 (function(){
   var stored=null;
