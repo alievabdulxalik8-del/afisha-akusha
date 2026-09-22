@@ -86,7 +86,7 @@ footer.wrap{padding-top:20px;padding-bottom:40px}
   <div class="carpet" aria-hidden="true"></div>
   <div class="wrap head">
     <h1>Выезды школ по Пушкинской карте</h1>
-    <p class="sub">Акушинский район. Страница для наблюдения: что уже проведено, какие школы ездили и сколько детей. Изменить здесь ничего нельзя.</p>
+    <p class="sub">Акушинский район. Страница для наблюдения: выдача Пушкинских карт по школам, проведённые и предстоящие мероприятия, сколько детей съездило. Изменить здесь ничего нельзя.</p>
   </div>
 </header>
 
@@ -113,13 +113,20 @@ footer.wrap{padding-top:20px;padding-bottom:40px}
   </div>
 
   <div class="panel">
-    <h2>Запланировано</h2>
-    <p class="hint">Мероприятия, на которые школы уже записаны, но которые ещё не отмечены как проведённые.</p>
+    <h2>Предстоящие мероприятия</h2>
+    <p class="hint">Всё, что ещё не отмечено как проведённое. Видно, записаны ли уже школы.</p>
     <div id="planList"></div>
   </div>
 
   <div class="panel">
-    <h2>Охват по школам</h2>
+    <h2>Выдача Пушкинских карт по школам</h2>
+    <p class="hint">Сколько детей 14–18 лет в школе и у скольких оформлена карта. Наверху — школы с наименьшим охватом.</p>
+    <div class="row" id="cardFilter"></div>
+    <div id="cardList"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Охват выездами по школам</h2>
     <p class="hint">«Осталось» — сколько детей с Пушкинской картой из этой школы ещё не выезжали.</p>
     <div class="row" id="schoolFilter"></div>
     <div id="schoolList"></div>
@@ -129,7 +136,7 @@ footer.wrap{padding-top:20px;padding-bottom:40px}
 </main>
 <footer class="wrap">
   Билеты продаются на kassir.ru, справки по телефону кассы +7 928 009-73-00.
-  <span class="snote">Страница наблюдателя, версия 22.09.2026-2. Афиша и данные берутся из общей базы, обновляются раз в минуту.</span>
+  <span class="snote">Страница наблюдателя, версия 22.09.2026-3. Афиша и данные берутся из общей базы, обновляются раз в минуту.</span>
 </footer>
 
 <script>
@@ -258,24 +265,92 @@ function render(){
   renderKpis();
   renderDone();
   renderPlanned();
+  renderCards();
   renderSchools();
+}
+
+function totals(){
+  var pupils=0, ids=[], st=0, cards=0, noCards=0, zero=0;
+  S.history.forEach(function(h){ (h.rows||[]).forEach(function(r){
+    pupils+=num(r.count); if(ids.indexOf(r.schoolId)<0) ids.push(r.schoolId);
+  }); });
+  S.schools.forEach(function(s){
+    var a=num(s.students), c=num(s.cards);
+    st+=a; cards+=c;
+    if(a>0 && c===0) zero++;
+  });
+  noCards=Math.max(0, st-cards);
+  return {pupils:pupils, schoolsWent:ids.length, students:st, cards:cards, noCards:noCards, zeroSchools:zero};
 }
 
 function renderKpis(){
   var k=document.getElementById("kpis"); k.textContent="";
-  var pupils=0, ids=[];
-  S.history.forEach(function(h){ (h.rows||[]).forEach(function(r){
-    pupils+=num(r.count); if(ids.indexOf(r.schoolId)<0) ids.push(r.schoolId);
-  }); });
-  var cards=0;
-  S.schools.forEach(function(s){ cards+=num(s.cards); });
-  var pct = cards ? Math.round(pupils/cards*100) : 0;
-  [[S.history.length,"мероприятий проведено"],
-   [pupils,"детей съездило"],
-   [ids.length+" из "+S.schools.length,"школ охвачено"],
-   [cards?(pct+"%"):"—","охват карт: "+pupils+" из "+cards]
+  var t=totals();
+  var issue = t.students ? Math.round(t.cards/t.students*100) : 0;
+  var trips  = t.cards ? Math.round(t.pupils/t.cards*100) : 0;
+  [[t.students,"учащихся 14–18 лет"],
+   [t.cards,"выдано Пушкинских карт"],
+   [t.students?(issue+"%"):"—","охват картами · без карты "+t.noCards],
+   [S.history.length,"мероприятий проведено"],
+   [t.pupils,"детей съездило"],
+   [t.cards?(trips+"%"):"—","съездило от числа карт"],
+   [t.schoolsWent+" из "+S.schools.length,"школ уже выезжали"],
+   [t.zeroSchools,"школ без единой карты"]
   ].forEach(function(x){
     k.appendChild(el("div",{class:"kpi"},[el("b",{text:String(x[0])}),el("span",{text:x[1]})]));
+  });
+}
+
+var CFILTER="all";
+function renderCards(){
+  var all=S.schools.slice().map(function(s){
+    var a=num(s.students), c=num(s.cards);
+    return {s:s, a:a, c:c, left:Math.max(0,a-c), pct:a?Math.round(c/a*100):null};
+  });
+  var f=document.getElementById("cardFilter"); f.textContent="";
+  function chip(id,label){
+    return el("button",{class:"chip","aria-pressed":CFILTER===id?"true":"false",text:label,
+      onclick:function(){ CFILTER=id; renderCards(); }});
+  }
+  f.appendChild(chip("all","Все школы ("+all.length+")"));
+  f.appendChild(chip("zero","Без единой карты ("+all.filter(function(r){return r.a>0 && r.c===0;}).length+")"));
+  f.appendChild(chip("low","Охват ниже 50% ("+all.filter(function(r){return r.a>0 && r.pct<50;}).length+")"));
+  f.appendChild(chip("full","Полный охват ("+all.filter(function(r){return r.a>0 && r.pct>=100;}).length+")"));
+
+  var list=all.filter(function(r){
+    if(CFILTER==="zero") return r.a>0 && r.c===0;
+    if(CFILTER==="low")  return r.a>0 && r.pct<50;
+    if(CFILTER==="full") return r.a>0 && r.pct>=100;
+    return true;
+  }).sort(function(x,y){
+    if(x.a===0 && y.a!==0) return 1;
+    if(y.a===0 && x.a!==0) return -1;
+    if(x.pct!==y.pct) return (x.pct||0)-(y.pct||0);
+    return y.left-x.left;
+  });
+
+  var box=document.getElementById("cardList"); box.textContent="";
+  if(!list.length){ box.appendChild(el("div",{class:"empty",text:"В этом списке пока никого нет."})); return; }
+  list.forEach(function(r){
+    var row=el("div",{class:"srow"},[
+      el("div",{class:"stop"},[
+        el("span",{class:"sname",text:r.s.name+(r.s.village?" ("+r.s.village+")":"")}),
+        el("span",{class:"snum",text:r.a?(r.c+" / "+r.a):"нет 14+"})
+      ])
+    ]);
+    if(r.a){
+      var pct=Math.min(100, r.pct);
+      var i=el("i",{style:"width:"+pct+"%"});
+      if(r.pct<50) i.className="over";
+      row.appendChild(el("div",{class:"bar"},[i]));
+    }
+    var tail;
+    if(!r.a) tail="Учащихся 14–18 лет нет.";
+    else if(!r.c) tail="Карт не оформлено ни одной. Учащихся 14–18: "+r.a+".";
+    else if(r.left) tail="Охват "+r.pct+"%. Без карты ещё "+r.left+" "+plural(r.left,"ученик","ученика","учеников")+".";
+    else tail="Карты оформлены у всех.";
+    row.appendChild(el("span",{class:"snote"+((r.a&&r.pct<50)?" warn":""),text:tail}));
+    box.appendChild(row);
   });
 }
 
@@ -321,19 +396,23 @@ function renderDone(){
 function renderPlanned(){
   var box=document.getElementById("planList"); box.textContent="";
   var done={}; S.history.forEach(function(h){ done[h.eventId]=true; });
-  var any=false;
-  EVENTS.forEach(function(e){
-    var rows=S.plan[e.id]||[];
-    if(!rows.length || done[e.id]) return;
+  var today=todayStr(), any=false;
+  EVENTS.slice().sort(function(a,b){ return String(a.date).localeCompare(String(b.date)); }).forEach(function(e){
+    if(done[e.id]) return;
     any=true;
+    var rows=S.plan[e.id]||[];
     var v=VENUES[e.venue]||{name:"",addr:""};
     var rr=rows.map(function(r){
       var s=schoolById(r.schoolId)||{};
       return {schoolId:r.schoolId, name:s.name, village:s.village, count:r.count};
     });
-    box.appendChild(evCard(e.title, ruDate(e.date)+", "+e.time+" — "+v.name, rr, num(S.seats[e.id])));
+    var meta=ruDate(e.date)+", "+e.time+" — "+v.name+" · от "+e.price+" ₽ · "+(e.pk?"Пушкинская карта":"без Пушкинской карты");
+    var card=evCard(e.title, meta, rr, num(S.seats[e.id]));
+    if(e.date<today) card.appendChild(el("span",{class:"snote warn",text:"Дата прошла, а мероприятие не отмечено как проведённое."}));
+    else if(!e.pk) card.appendChild(el("span",{class:"snote warn",text:"Оплатить Пушкинской картой нельзя: описание не прошло модерацию."}));
+    box.appendChild(card);
   });
-  if(!any) box.appendChild(el("div",{class:"empty",text:"Ни на одно предстоящее мероприятие школы пока не записаны."}));
+  if(!any) box.appendChild(el("div",{class:"empty",text:"Все мероприятия афиши уже отмечены как проведённые."}));
 }
 
 var FILTER="all";
