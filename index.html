@@ -148,6 +148,11 @@ details.pickmulti[open]>summary{border-color:var(--accent)}
 .mrow input{width:22px;height:22px;flex:0 0 auto;margin:0}
 .mrow span{flex:1;line-height:1.35}
 .hist{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:10px}
+.contact{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:10px}
+.contact h4{margin:0 0 2px;font-size:16px;line-height:1.3}
+.contact .row{margin:10px 0 0}
+.contact a.mail{font-size:13px;word-break:break-all}
+#contactSearch{width:100%;margin-bottom:4px}
 .hist h4{margin:0 0 2px;font-size:17px}
 #printWrap{max-width:1040px;margin:0 auto;padding:0 18px 40px}
 #printWrap[hidden]{display:none}
@@ -235,6 +240,7 @@ input.inp,textarea.inp,.search{-webkit-appearance:none;appearance:none}
     <nav class="tabs" role="tablist">
       <button role="tab" aria-selected="true" data-tab="afisha">Афиша</button>
       <button role="tab" aria-selected="false" data-tab="schools">Школы</button>
+      <button role="tab" aria-selected="false" data-tab="contacts">Контакты</button>
       <button role="tab" aria-selected="false" data-tab="plan">План выездов</button>
       <button role="tab" aria-selected="false" data-tab="history">История</button>
       <button role="tab" aria-selected="false" data-tab="data">Отчёт</button>
@@ -282,6 +288,16 @@ input.inp,textarea.inp,.search{-webkit-appearance:none;appearance:none}
     <p class="hint">Если список уже есть в Excel или Word: по одной школе в строке, через точку с запятой. Формат: <b>Школа; Село; Учащихся 14+; С картой</b>. Одинаковые названия обновятся, новые добавятся.</p>
     <textarea class="inp" id="bulk" placeholder="Бутринская СОШ; Бутри; 45; 30"></textarea>
     <div class="row"><button class="btn" id="bulkAdd">Добавить из списка</button><span id="bulkMsg" class="ok"></span></div>
+  </div>
+</section>
+
+<!-- CONTACTS -->
+<section id="tab-contacts" hidden>
+  <div class="panel">
+    <h2>Контакты школ</h2>
+    <p class="hint">Директора, телефоны и почта по данным управления образования. Нажмите на номер — телефон начнёт набор, нажмите на адрес — откроется письмо.</p>
+    <input class="search" id="contactSearch" type="search" placeholder="Поиск по школе, селу или фамилии" aria-label="Поиск по контактам">
+    <div id="contactList"></div>
   </div>
 </section>
 
@@ -365,7 +381,7 @@ input.inp,textarea.inp,.search{-webkit-appearance:none;appearance:none}
 
 <footer class="wrap">
   Билеты продаются на kassir.ru, справки по телефону кассы +7 928 009-73-00. Места в залах и данные по школам заполняются вручную.
-  <span class="snote">Версия сайта: 22.09.2026-3 (общая база по коду доступа, сквады, история, печать с QR-кодом).</span>
+  <span class="snote">Версия сайта: 22.09.2026-5 (контакты школ, общая база по коду, сквады, история, печать с QR-кодом).</span>
 </footer>
 
 <script>
@@ -473,7 +489,7 @@ function visitNote(schoolId){
 function todayStr(){ var t=new Date(); return t.getFullYear()+"-"+String(t.getMonth()+1).padStart(2,"0")+"-"+String(t.getDate()).padStart(2,"0"); }
 
 /* Tabs */
-var TABS=["afisha","schools","plan","history","data"];
+var TABS=["afisha","schools","contacts","plan","history","data"];
 var CURTAB="afisha";
 var tabs=document.querySelectorAll("nav.tabs button");
 function showTab(name){
@@ -486,6 +502,7 @@ function showTab(name){
   if(name==="data") buildReport();
   if(name==="plan") renderPlan();
   if(name==="history") renderHistory();
+  if(name==="contacts") renderContacts();
 }
 tabs.forEach(function(b){ b.addEventListener("click", function(){ showTab(b.dataset.tab); }); });
 
@@ -721,9 +738,11 @@ function rowsTable(rows, onCount, onRemove){
     var c=el("input",{class:"inp num",type:"number",min:"0",value:r.count||"","aria-label":"Сколько учеников"});
     c.addEventListener("change",function(){ r.count=this.value; setWarn(); onCount(); });
     setWarn();
-    var note=visitNote(s.id);
+    var note=visitNote(s.id), ph=fmtPhone(s.phone);
     tb.appendChild(el("tr",{},[
-      el("td",{},[el("span",{text:s.name}), note?el("small",{class:"snote",text:note}):null]),
+      el("td",{},[el("span",{text:s.name}),
+        note?el("small",{class:"snote",text:note}):null,
+        ph?el("a",{class:"snote",href:"tel:"+ph.tel,text:"☎ "+ph.text}):null]),
       el("td",{text:s.village||""}), el("td",{},[c]),
       wcell,
       el("td",{},[el("button",{class:"x",text:"×","aria-label":"Убрать "+s.name,onclick:function(){ rows.splice(rows.indexOf(r),1); onRemove(); }})])
@@ -912,6 +931,40 @@ document.getElementById("doPrint").addEventListener("click",function(){
   setTimeout(function(){ try{ window.print(); }catch(e){} setTimeout(cleanup,4000); },60);
 });
 
+function fmtPhone(raw){
+  var d=String(raw||"").replace(/\D/g,"");
+  if(d.length===11 && (d.charAt(0)==="8"||d.charAt(0)==="7")) d="7"+d.slice(1);
+  if(d.length!==11) return null;
+  return {tel:"+"+d, text:"+7 "+d.slice(1,4)+" "+d.slice(4,7)+"-"+d.slice(7,9)+"-"+d.slice(9,11)};
+}
+
+function renderContacts(){
+  var box=document.getElementById("contactList"); if(!box) return;
+  box.textContent="";
+  var q=(document.getElementById("contactSearch").value||"").trim().toLowerCase();
+  var list=S.schools.filter(function(s){
+    if(!q) return true;
+    return (s.name+" "+(s.village||"")+" "+(s.director||"")).toLowerCase().indexOf(q)>=0;
+  });
+  if(!list.length){
+    box.appendChild(el("div",{class:"empty",text:"Ничего не нашлось. Измените запрос."}));
+    return;
+  }
+  list.slice().sort(function(a,b){ return a.name.localeCompare(b.name,"ru"); }).forEach(function(s){
+    var ph=fmtPhone(s.phone);
+    var card=el("div",{class:"contact"},[
+      el("h4",{text:s.name}),
+      el("p",{class:"snote",text:(s.village||"—")+(s.director?" · "+s.director:"")})
+    ]);
+    var row=el("div",{class:"row"});
+    if(ph) row.appendChild(el("a",{class:"btn small",href:"tel:"+ph.tel,text:"☎ "+ph.text}));
+    if(s.email) row.appendChild(el("a",{class:"btn ghost small mail",href:"mailto:"+s.email,text:s.email}));
+    if(!ph && !s.email) row.appendChild(el("span",{class:"snote",text:"Контактов нет"}));
+    card.appendChild(row);
+    box.appendChild(card);
+  });
+}
+
 function renderSummary(){
   var tb=document.getElementById("summaryRows"); tb.textContent="";
   EVENTS.forEach(function(e){
@@ -1011,7 +1064,7 @@ function labelTables(){
 }
 var _mo=new MutationObserver(function(){ _mo.disconnect(); labelTables(); _mo.observe(document.querySelector("main"),{childList:true,subtree:true}); });
 _mo.observe(document.querySelector("main"),{childList:true,subtree:true});
-function renderAll(){ renderNext(); renderAfisha(); renderSchools(); renderPlan(); renderHistory(); }
+function renderAll(){ renderNext(); renderAfisha(); renderSchools(); renderContacts(); renderPlan(); renderHistory(); }
 
 /* ---------- общая база ---------- */
 function api(fn, body, done){
@@ -1100,18 +1153,25 @@ function setSync(txt){
   if(!ACCESS.role){ bar.hidden=true; return; }
   bar.hidden=false; bar.textContent=""; bar.className="sync";
   if(SYNC.err==="conflict"){
+    var c=SYNC.conflict||{}, sd=c.data||{};
+    function descr(o){
+      return ((o.schools||[]).length)+" школ, "+((o.history||[]).length)+" в истории";
+    }
+    var theirs=descr(sd), mine=descr(S);
     bar.className="sync bad";
-    bar.appendChild(el("span",{text:"Данные изменил "+((SYNC.conflict&&SYNC.conflict.updated_by)||"коллега")+". Ваши изменения пока не сохранены."}));
+    bar.appendChild(el("b",{text:"Данные в базе изменил: "+(c.updated_by||"кто-то ещё")}));
+    bar.appendChild(el("span",{class:"snote",text:"В базе сейчас: "+theirs+". У вас на экране: "+mine+". Ваши изменения не сохранены — выберите, что оставить."}));
     bar.appendChild(el("div",{class:"row"},[
-      el("button",{class:"btn small",text:"Взять версию коллеги",onclick:function(){
-        var c=SYNC.conflict; SYNC.conflict=null; SYNC.err=null; SYNC.dirty=false;
-        SYNC.at=c.updated_at; SYNC.by=c.updated_by;
-        if(applyServer(c.data)){ saveLocal(); renderAll(); showTab(CURTAB); }
+      el("button",{class:"btn small",text:"Загрузить из базы",onclick:function(){
+        var k=SYNC.conflict; SYNC.conflict=null; SYNC.err=null; SYNC.dirty=false;
+        SYNC.at=k.updated_at; SYNC.by=k.updated_by;
+        if(applyServer(k.data)){ saveLocal(); renderAll(); showTab(CURTAB); }
         setSync();
       }}),
-      el("button",{class:"btn ghost small",text:"Оставить мою",onclick:function(){
-        var c=SYNC.conflict; SYNC.conflict=null; SYNC.err=null;
-        SYNC.at=c.updated_at; doPush();
+      el("button",{class:"btn ghost small",text:"Записать мою поверх",onclick:function(){
+        if(!confirm("Записать то, что у вас на экране ("+mine+"), поверх базы ("+theirs+")?\n\nВсё, что сейчас в базе, будет потеряно без возможности восстановить.")) return;
+        var k=SYNC.conflict; SYNC.conflict=null; SYNC.err=null;
+        SYNC.at=k.updated_at; doPush();
       }})
     ]));
     return;
@@ -1183,6 +1243,8 @@ document.getElementById("forgetBtn").addEventListener("click",function(){
   SYNC={at:null, by:null, dirty:false, busy:false, err:null, conflict:null, timer:null};
   setSync(); showTab("afisha");
 });
+
+document.getElementById("contactSearch").addEventListener("input", renderContacts);
 
 setInterval(refreshFromServer, 25000);
 window.addEventListener("focus", refreshFromServer);
