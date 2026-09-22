@@ -200,7 +200,7 @@ input.inp,textarea.inp,.search{-webkit-appearance:none;appearance:none}
   <div class="kpis" id="schoolKpis"></div>
   <div class="panel">
     <h2>Школы района</h2>
-    <p class="hint">Стартовый список собран из открытых источников и может быть неполным. Добавьте недостающие школы и укажите, сколько учащихся 14 лет и старше и у скольких есть Пушкинская карта. Поле «Куст» помогает группировать соседние сёла для выездных мероприятий.</p>
+    <p class="hint">Стартовый список собран из открытых источников и может быть неполным. Добавьте недостающие школы и укажите, сколько учащихся 14 лет и старше и у скольких есть Пушкинская карта. Поле «Куст» — это группа соседних сёл: напишите одинаковое название у нескольких школ, и в плане мероприятий их можно будет добавить все сразу, одной кнопкой.</p>
     <div class="tablewrap"><table>
       <thead><tr><th>Школа</th><th>Село</th><th>Куст</th><th>Учащихся 14+</th><th>С картой</th><th></th></tr></thead>
       <tbody id="schoolRows"></tbody>
@@ -222,7 +222,7 @@ input.inp,textarea.inp,.search{-webkit-appearance:none;appearance:none}
 <section id="tab-plan" hidden>
   <div class="panel">
     <h2>Кто едет на мероприятие</h2>
-    <p class="hint">Выберите мероприятие, укажите количество мест в зале и добавьте школы. Сайт посчитает, хватает ли мест и не больше ли учеников, чем карт у школы.</p>
+    <p class="hint">Выберите мероприятие, укажите количество мест в зале и добавьте школы — по одной или весь куст сразу. Сайт посчитает, хватает ли мест и не больше ли учеников, чем карт у школы.</p>
     <div class="row">
       <select class="inp" id="planEvent" aria-label="Мероприятие"></select>
       <label>Мест в зале <input class="inp num" type="number" min="0" id="planSeats"></label>
@@ -238,30 +238,20 @@ input.inp,textarea.inp,.search{-webkit-appearance:none;appearance:none}
     </table></div>
   </div>
 
-  <div class="panel">
-    <h2>Выездные мероприятия в отдалённые сёла</h2>
-    <p class="hint">Когда школы не могут доехать до Шукты или Бутри, коллектив может выехать сам и охватить несколько соседних школ за один раз. Здесь можно прикинуть такие выезды.</p>
-    <p class="note">Для оплаты Пушкинской картой выездное мероприятие нужно заводить в PRO.Культура отдельным событием с настоящим адресом и датой проведения. Если билеты продаются на Шукты, а показ идёт в другом селе, при проверке это выглядит как несоответствие, и организации могут выставить претензию.</p>
-    <div class="row">
-      <select class="inp" id="tripBase" aria-label="Программа"></select>
-      <input class="inp" id="tripVillage" placeholder="Село проведения">
-      <input class="inp" id="tripDate" type="date" aria-label="Дата">
-      <button class="btn" id="addTrip">Добавить выезд</button>
-    </div>
-    <div id="tripList"></div>
-  </div>
 </section>
 
 <!-- DATA -->
 <section id="tab-data" hidden>
   <div class="panel">
     <h2>Отчёт для рассылки</h2>
-    <p class="hint">Готовый текст с планом выездов. Его можно скопировать и отправить в WhatsApp или вставить в письмо.</p>
+    <p class="hint">Отчёт собирается сам, как только вы заполняете план. Его можно скопировать в WhatsApp, скачать файлом или распечатать. Таблица CSV открывается в Excel.</p>
     <textarea class="inp" id="report" readonly style="min-height:220px"></textarea>
     <div class="row">
-      <button class="btn" id="selectReport">Выделить текст</button>
-      <button class="btn ghost" id="csvBtn" hidden>Скачать таблицу (CSV)</button>
+      <button class="btn" id="copyReport">Копировать отчёт</button>
+      <button class="btn ghost" id="txtBtn">Скачать отчёт (TXT)</button>
+      <button class="btn ghost" id="csvBtn">Скачать таблицу (CSV)</button>
       <button class="btn ghost" id="printBtn">Распечатать</button>
+      <span id="reportMsg" class="ok"></span>
     </div>
   </div>
   <div class="panel">
@@ -332,13 +322,13 @@ var KEY = "akusha-pk-plan-v1";
 function freshState(){
   return {
     schools: START_SCHOOLS.map(function(s,i){return {id:"s"+(i+1), name:s[0], village:s[1], group:"", students:"", cards:""};}),
-    seats:{}, plan:{}, trips:[]
+    seats:{}, plan:{}
   };
 }
 var S;
 try { var raw = localStorage.getItem(KEY); S = raw ? JSON.parse(raw) : freshState(); } catch(e){ S = freshState(); }
 if(!S || !S.schools){ S = freshState(); }
-S.seats=S.seats||{}; S.plan=S.plan||{}; S.trips=S.trips||[];
+S.seats=S.seats||{}; S.plan=S.plan||{};
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
 
 function el(tag, attrs, kids){
@@ -380,7 +370,7 @@ function renderNext(){
 }
 
 /* Afisha */
-var F={month:"all", venue:"all", pkOnly:false, q:""};
+var F={month:"all", venue:"all", q:""};
 function renderFilters(){
   var f=document.getElementById("filters"); f.textContent="";
   var months=[]; EVENTS.forEach(function(e){ var m=dParts(e.date).m; if(months.indexOf(m)<0) months.push(m); });
@@ -390,7 +380,6 @@ function renderFilters(){
   var vs=el("select",{class:"inp","aria-label":"Место проведения",onchange:function(){F.venue=this.value;renderAfisha();}},[
     el("option",{value:"all",text:"Все площадки"}), el("option",{value:"shukty",text:"КДЦ Шукты"}), el("option",{value:"butri",text:"ЦТКНР Бутри"})]);
   vs.value=F.venue; f.appendChild(vs);
-  f.appendChild(chip("Только по Пушкинской карте",F.pkOnly,function(){F.pkOnly=!F.pkOnly;renderAfisha();}));
   var s=el("input",{class:"search",type:"search",placeholder:"Поиск по названию",value:F.q,"aria-label":"Поиск"});
   s.addEventListener("input",function(){F.q=this.value;renderList();});
   f.appendChild(s);
@@ -402,7 +391,6 @@ function renderList(){
   var list=EVENTS.filter(function(e){
     if(F.month!=="all" && dParts(e.date).m!==F.month) return false;
     if(F.venue!=="all" && e.venue!==F.venue) return false;
-    if(F.pkOnly && !e.pk) return false;
     if(q && e.title.toLowerCase().indexOf(q)<0) return false;
     return true;
   });
@@ -465,7 +453,6 @@ function renderSchools(){
         if(!confirm("Удалить «"+s.name+"» из списка и из плана?")) return;
         S.schools=S.schools.filter(function(x){return x!==s;});
         Object.keys(S.plan).forEach(function(k){ S.plan[k]=S.plan[k].filter(function(r){return r.schoolId!==s.id;}); });
-        S.trips.forEach(function(t){ t.schools=t.schools.filter(function(r){return r.schoolId!==s.id;}); });
         save(); renderSchools(); renderList();
       }})])
     ]);
@@ -499,24 +486,43 @@ document.getElementById("bulkAdd").addEventListener("click",function(){
 
 /* Plan */
 var curEv=EVENTS[0].id;
-function fillEventSelect(sel, withFree){
+function fillEventSelect(sel){
   sel.textContent="";
   EVENTS.forEach(function(e){ sel.appendChild(el("option",{value:e.id,text:dLabel(e)+" — "+e.title})); });
-  if(withFree) sel.appendChild(el("option",{value:"",text:"Другая программа"}));
 }
-var planSel=document.getElementById("planEvent"); fillEventSelect(planSel,false);
+var planSel=document.getElementById("planEvent"); fillEventSelect(planSel);
 planSel.addEventListener("change",function(){ curEv=this.value; renderPlan(); });
 document.getElementById("planSeats").addEventListener("change",function(){ S.seats[curEv]=this.value; save(); renderPlan(); renderList(); });
 
+function groupOf(s){ return (s.group||"").trim(); }
 function schoolPicker(excludeIds, onPick){
-  var sel=el("select",{class:"inp","aria-label":"Школа"});
-  sel.appendChild(el("option",{value:"",text:"Выберите школу"}));
-  S.schools.slice().sort(function(a,b){return (a.group+a.village).localeCompare(b.group+b.village,"ru");}).forEach(function(s){
-    if(excludeIds.indexOf(s.id)>=0) return;
+  var sel=el("select",{class:"inp","aria-label":"Школа или куст"});
+  sel.appendChild(el("option",{value:"",text:"Выберите школу или куст"}));
+  var free=S.schools.filter(function(s){ return excludeIds.indexOf(s.id)<0; });
+  var groups=[];
+  free.forEach(function(s){ var g=groupOf(s); if(g && groups.indexOf(g)<0) groups.push(g); });
+  groups.sort(function(a,b){ return a.localeCompare(b,"ru"); });
+  if(groups.length){
+    var og=el("optgroup",{label:"Кусты целиком"});
+    groups.forEach(function(g){
+      var n=free.filter(function(s){return groupOf(s)===g;}).length;
+      og.appendChild(el("option",{value:"g:"+g,text:"Весь куст «"+g+"» — "+n+" шк."}));
+    });
+    sel.appendChild(og);
+  }
+  var og2=el("optgroup",{label:groups.length?"Отдельные школы":"Школы"});
+  free.slice().sort(function(a,b){return (a.group+a.village).localeCompare(b.group+b.village,"ru");}).forEach(function(s){
     var lbl=s.name+(s.village?" ("+s.village+")":"")+(s.cards!==""?", карт: "+s.cards:"");
-    sel.appendChild(el("option",{value:s.id,text:lbl}));
+    og2.appendChild(el("option",{value:s.id,text:lbl}));
   });
-  var btn=el("button",{class:"btn small",text:"Добавить",onclick:function(){ if(sel.value) onPick(sel.value); }});
+  sel.appendChild(og2);
+  var btn=el("button",{class:"btn small",text:"Добавить",onclick:function(){
+    var v=sel.value; if(!v) return;
+    if(v.slice(0,2)==="g:"){
+      var g=v.slice(2);
+      onPick(free.filter(function(s){return groupOf(s)===g;}).map(function(s){return s.id;}));
+    } else onPick([v]);
+  }});
   return el("div",{class:"row"},[sel,btn]);
 }
 function rowsTable(rows, onChange){
@@ -543,15 +549,18 @@ function renderPlan(){
   if(!e.pk) body.appendChild(el("p",{class:"note",text:"У этого мероприятия сейчас нет отметки Пушкинской карты. Оплатить картой не получится, пока описание не пройдёт модерацию."}));
   if(rows.length) body.appendChild(rowsTable(rows,function(){ save(); renderPlan(); renderList(); }));
   else body.appendChild(el("p",{class:"hint",text:"Пока ни одна школа не добавлена."}));
-  body.appendChild(schoolPicker(rows.map(function(r){return r.schoolId;}),function(id){
-    var s=schoolById(id); rows.push({schoolId:id,count:s&&s.cards!==""?s.cards:""}); save(); renderPlan(); renderList();
+  body.appendChild(schoolPicker(rows.map(function(r){return r.schoolId;}),function(ids){
+    ids.forEach(function(id){
+      var s=schoolById(id); rows.push({schoolId:id,count:s&&s.cards!==""?s.cards:""});
+    });
+    save(); renderPlan(); renderList();
   }));
   var seats=num(S.seats[curEv]), pl=planned(curEv);
   var msg = !seats ? el("p",{class:"hint",text:"Запланировано учеников: "+pl+". Укажите число мест, чтобы проверить вместимость."})
     : (pl>seats ? el("p",{class:"warn",text:"Запланировано "+pl+" при "+seats+" местах: не хватает "+(pl-seats)+"."})
                 : el("p",{class:"ok",text:"Запланировано "+pl+" из "+seats+" мест, свободно "+(seats-pl)+"."}));
   body.appendChild(msg);
-  renderSummary(); renderTrips();
+  renderSummary(); buildReport();
 }
 function renderSummary(){
   var tb=document.getElementById("summaryRows"); tb.textContent="";
@@ -567,35 +576,6 @@ function renderSummary(){
   });
 }
 
-/* Trips */
-var tripBase=document.getElementById("tripBase"); fillEventSelect(tripBase,true);
-document.getElementById("addTrip").addEventListener("click",function(){
-  var v=document.getElementById("tripVillage").value.trim();
-  if(!v){ document.getElementById("tripVillage").focus(); return; }
-  var base=evById(tripBase.value);
-  S.trips.push({id:newId(), title: base?base.title:"Выездная программа", village:v, date:document.getElementById("tripDate").value, schools:[]});
-  document.getElementById("tripVillage").value=""; save(); renderTrips();
-});
-function renderTrips(){
-  var box=document.getElementById("tripList"); box.textContent="";
-  S.trips.forEach(function(t){
-    var total=t.schools.reduce(function(a,r){return a+num(r.count);},0);
-    var dt=t.date?(function(){var p=dParts(t.date);return p.d+" "+MONTHS_G[p.m];})():"дата не выбрана";
-    var card=el("div",{class:"trip"},[
-      el("div",{class:"row",style:"justify-content:space-between;margin:0"},[
-        el("h4",{text:t.title+" — с. "+t.village+", "+dt}),
-        el("button",{class:"x",text:"×","aria-label":"Удалить выезд",onclick:function(){ if(confirm("Удалить этот выезд?")){ S.trips=S.trips.filter(function(x){return x!==t;}); save(); renderTrips(); } }})
-      ])
-    ]);
-    if(t.schools.length) card.appendChild(rowsTable(t.schools,function(){ save(); renderTrips(); }));
-    card.appendChild(schoolPicker(t.schools.map(function(r){return r.schoolId;}),function(id){
-      var s=schoolById(id); t.schools.push({schoolId:id,count:s&&s.cards!==""?s.cards:""}); save(); renderTrips();
-    }));
-    card.appendChild(el("p",{class:"hint",text:"Охват: "+t.schools.length+" школ, "+total+" учеников."}));
-    box.appendChild(card);
-  });
-}
-
 /* Report */
 function buildReport(){
   var out=["ПЛАН ВЫЕЗДОВ ШКОЛ ПО ПУШКИНСКОЙ КАРТЕ, Акушинский район",""];
@@ -608,17 +588,51 @@ function buildReport(){
     out.push("  Итого: "+planned(e.id)+" уч.");
     out.push("Билеты: "+e.url); out.push("");
   });
-  if(S.trips.length){
-    out.push("ВЫЕЗДНЫЕ МЕРОПРИЯТИЯ (нужна отдельная регистрация в PRO.Культура)");
-    S.trips.forEach(function(t){
-      out.push((t.date?dLabel({date:t.date})+" — ":"")+t.title+", с. "+t.village);
-      t.schools.forEach(function(r){ var s=schoolById(r.schoolId); if(s) out.push("  • "+s.name+" — "+num(r.count)+" уч."); });
-    });
+  var evCount=0, totalPupils=0, usedSchools=[];
+  EVENTS.forEach(function(e){
+    var rows=S.plan[e.id]||[]; if(!rows.length) return;
+    evCount++; totalPupils+=planned(e.id);
+    rows.forEach(function(r){ if(usedSchools.indexOf(r.schoolId)<0) usedSchools.push(r.schoolId); });
+  });
+  if(evCount){
+    out.push("ИТОГО ПО ПЛАНУ");
+    out.push("Мероприятий: "+evCount);
+    out.push("Школ задействовано: "+usedSchools.length);
+    out.push("Учеников всего: "+totalPupils);
+    out.push("");
+    out.push("Отчёт сформирован "+new Date().toLocaleDateString("ru-RU")+".");
   }
   if(out.length<=2) out.push("План пока пуст. Добавьте школы во вкладке «План выездов».");
   document.getElementById("report").value=out.join("\n");
 }
-document.getElementById("selectReport").addEventListener("click",function(){ var t=document.getElementById("report"); t.focus(); t.select(); });
+function rmsg(t,cls){ var m=document.getElementById("reportMsg"); m.className=cls||"ok"; m.textContent=t; }
+function download(filename, text, mime){
+  try{
+    var blob=new Blob([text],{type:(mime||"text/plain")+";charset=utf-8"});
+    var url=URL.createObjectURL(blob);
+    var a=el("a",{href:url,download:filename});
+    document.body.appendChild(a); a.click();
+    setTimeout(function(){ try{document.body.removeChild(a);}catch(e){} URL.revokeObjectURL(url); },2000);
+    rmsg("Файл "+filename+" сохранён в загрузки.");
+  }catch(e){ rmsg("Скачать не получилось. Скопируйте текст отчёта кнопкой слева.","warn"); }
+}
+document.getElementById("copyReport").addEventListener("click",function(){
+  var ta=document.getElementById("report");
+  ta.focus(); ta.select(); try{ ta.setSelectionRange(0, ta.value.length); }catch(e){}
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(ta.value).then(function(){ rmsg("Отчёт скопирован."); })
+      .catch(function(){ rmsg("Текст выделен — нажмите «Копировать».","warn"); });
+    return;
+  }
+  var ok=false; try{ ok=document.execCommand("copy"); }catch(e){}
+  rmsg(ok?"Отчёт скопирован.":"Текст выделен — нажмите «Копировать».", ok?"ok":"warn");
+});
+document.getElementById("txtBtn").addEventListener("click",function(){
+  download("plan-meropriyatiy-"+todayStr()+".txt", document.getElementById("report").value, "text/plain");
+});
+document.getElementById("csvBtn").addEventListener("click",function(){
+  download("plan-meropriyatiy-"+todayStr()+".csv", csv(), "text/csv");
+});
 document.getElementById("printBtn").addEventListener("click",function(){ try{ window.print(); }catch(e){} });
 
 function csv(){
@@ -634,7 +648,7 @@ var tmsg=document.getElementById("transferMsg");
 document.getElementById("exportBtn").addEventListener("click",function(){ var t=document.getElementById("transfer"); t.value=JSON.stringify(S); t.focus(); t.select(); tmsg.className="ok"; tmsg.textContent="Код выделен, скопируйте его."; });
 document.getElementById("importBtn").addEventListener("click",function(){
   try{ var d=JSON.parse(document.getElementById("transfer").value); if(!d||!Array.isArray(d.schools)) throw 0;
-    S={schools:d.schools, seats:d.seats||{}, plan:d.plan||{}, trips:d.trips||[]}; save(); renderAll(); tmsg.className="ok"; tmsg.textContent="Данные загружены.";
+    S={schools:d.schools, seats:d.seats||{}, plan:d.plan||{}}; save(); renderAll(); tmsg.className="ok"; tmsg.textContent="Данные загружены.";
   }catch(e){ tmsg.className="warn"; tmsg.textContent="Код не распознан. Вставьте его целиком, от первой до последней фигурной скобки."; }
 });
 document.getElementById("resetBtn").addEventListener("click",function(){
@@ -655,17 +669,6 @@ var _mo=new MutationObserver(function(){ _mo.disconnect(); labelTables(); _mo.ob
 _mo.observe(document.querySelector("main"),{childList:true,subtree:true});
 function renderAll(){ renderNext(); renderAfisha(); renderSchools(); renderPlan(); }
 renderAll(); labelTables();
-
-/* Optional CSV download */
-if(window.claude && window.claude.use){
-  window.claude.use("downloads").then(function(dl){
-    if(!dl) return;
-    var b=document.getElementById("csvBtn"); b.hidden=false;
-    b.addEventListener("click",function(){
-      dl.save({filename:"plan-vyezdov-pushkinskaya-karta.csv", data:csv()}).catch(function(){});
-    });
-  }).catch(function(){});
-}
 })();
 </script>
 </body>
