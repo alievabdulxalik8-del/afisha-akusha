@@ -129,6 +129,7 @@ textarea.inp{width:100%;min-height:120px}
 .trip h4{margin:0 0 4px}
 footer{color:var(--muted);font-size:14px;border-top:1px solid var(--line)}
 .snote{display:block;color:var(--muted);font-size:13px;margin-top:2px}
+.snote.warn{color:var(--warn)}
 .hist{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:10px}
 .hist h4{margin:0 0 2px;font-size:17px}
 #printWrap{max-width:1040px;margin:0 auto;padding:0 18px 40px}
@@ -237,9 +238,9 @@ input.inp,textarea.inp,.search{-webkit-appearance:none;appearance:none}
   <div class="kpis" id="schoolKpis"></div>
   <div class="panel">
     <h2>Школы района</h2>
-    <p class="hint">Стартовый список собран из открытых источников и может быть неполным. Добавьте недостающие школы и укажите, сколько учащихся 14 лет и старше и у скольких есть Пушкинская карта. Поле «Куст» — это группа соседних сёл: напишите одинаковое название у нескольких школ, и в плане мероприятий их можно будет добавить все сразу, одной кнопкой.</p>
+    <p class="hint">Стартовый список собран из открытых источников и может быть неполным. Добавьте недостающие школы и укажите, сколько учащихся 14 лет и старше и у скольких есть Пушкинская карта. Поле «Сквад школ» — это группа соседних сёл. Напишите одинаковое название у нескольких школ, например «Бутри», и в плане мероприятий их можно будет добавить все сразу, одной кнопкой. Если поле не заполнено, сквады в плане не появятся.</p>
     <div class="tablewrap"><table>
-      <thead><tr><th>Школа</th><th>Село</th><th>Куст</th><th>Учащихся 14+</th><th>С картой</th><th></th></tr></thead>
+      <thead><tr><th>Школа</th><th>Село</th><th>Сквад школ</th><th>Учащихся 14+</th><th>С картой</th><th></th></tr></thead>
       <tbody id="schoolRows"></tbody>
       <tfoot><tr class="totals"><td colspan="3">Итого</td><td class="n" id="sumStud"></td><td class="n" id="sumCards"></td><td></td></tr></tfoot>
     </table></div>
@@ -259,7 +260,7 @@ input.inp,textarea.inp,.search{-webkit-appearance:none;appearance:none}
 <section id="tab-plan" hidden>
   <div class="panel">
     <h2>Кто едет на мероприятие</h2>
-    <p class="hint">Выберите мероприятие, укажите количество мест в зале и добавьте школы — по одной или весь куст сразу. Сайт посчитает, хватает ли мест и не больше ли учеников, чем карт у школы.</p>
+    <p class="hint">Выберите мероприятие, укажите количество мест в зале и добавьте школы — по одной или сразу весь сквад. Сайт посчитает, хватает ли мест и не больше ли учеников, чем карт у школы.</p>
     <div class="row">
       <select class="inp" id="planEvent" aria-label="Мероприятие"></select>
       <label>Мест в зале <input class="inp num" type="number" min="0" id="planSeats"></label>
@@ -520,31 +521,38 @@ function renderList(){
 /* Schools */
 function renderSchools(){
   var tb=document.getElementById("schoolRows"); tb.textContent="";
-  var st=0, cd=0;
   S.schools.forEach(function(s){
-    st+=num(s.students); cd+=num(s.cards);
+    var warn=el("small",{class:"snote warn"});
+    function setWarn(){ warn.textContent=(s.students!=="" && num(s.cards)>num(s.students)) ? "карт больше, чем учащихся" : ""; }
     function inp(field, type, label){
       var i=el("input",{class:"inp"+(type==="number"?" num":""),type:type,value:s[field]||"","aria-label":label});
       if(type==="number") i.setAttribute("min","0");
-      i.addEventListener("change",function(){ s[field]=this.value.trim(); save(); renderSchools(); renderList(); });
+      /* обновляем только итоги и предупреждение: полная перерисовка таблицы
+         подменяла соседние поля, и следующее нажатие по ним терялось */
+      i.addEventListener("change",function(){ s[field]=this.value.trim(); save(); setWarn(); schoolTotals(); });
       return i;
     }
     var tr=el("tr",{},[
       el("td",{},[inp("name","text","Название школы")]),
       el("td",{},[inp("village","text","Село")]),
-      el("td",{},[inp("group","text","Куст")]),
+      el("td",{},[inp("group","text","Сквад школ")]),
       el("td",{},[inp("students","number","Учащихся 14 лет и старше")]),
-      el("td",{},[inp("cards","number","С Пушкинской картой")]),
+      el("td",{},[inp("cards","number","С Пушкинской картой"), warn]),
       el("td",{},[el("button",{class:"x",title:"Удалить школу","aria-label":"Удалить "+s.name,text:"×",onclick:function(){
         if(!confirm("Удалить «"+s.name+"» из списка и из плана?")) return;
         S.schools=S.schools.filter(function(x){return x!==s;});
         Object.keys(S.plan).forEach(function(k){ S.plan[k]=S.plan[k].filter(function(r){return r.schoolId!==s.id;}); });
-        save(); renderSchools(); renderList();
+        save(); renderSchools(); renderList(); buildReport();
       }})])
     ]);
-    if(num(s.cards)>num(s.students) && s.students!==""){ tr.appendChild(el("td",{class:"warn",text:"карт больше, чем учащихся"})); }
+    setWarn();
     tb.appendChild(tr);
   });
+  schoolTotals();
+}
+function schoolTotals(){
+  var st=0, cd=0;
+  S.schools.forEach(function(s){ st+=num(s.students); cd+=num(s.cards); });
   document.getElementById("sumStud").textContent=st;
   document.getElementById("sumCards").textContent=cd;
   var filled=S.schools.filter(function(s){return s.cards!=="";}).length;
@@ -595,17 +603,17 @@ function renderCapacity(){
 
 function groupOf(s){ return (s.group||"").trim(); }
 function schoolPicker(excludeIds, onPick){
-  var sel=el("select",{class:"inp","aria-label":"Школа или куст"});
-  sel.appendChild(el("option",{value:"",text:"Выберите школу или куст"}));
+  var sel=el("select",{class:"inp","aria-label":"Школа или сквад"});
+  sel.appendChild(el("option",{value:"",text:"Выберите школу или сквад"}));
   var free=S.schools.filter(function(s){ return excludeIds.indexOf(s.id)<0; });
   var groups=[];
   free.forEach(function(s){ var g=groupOf(s); if(g && groups.indexOf(g)<0) groups.push(g); });
   groups.sort(function(a,b){ return a.localeCompare(b,"ru"); });
   if(groups.length){
-    var og=el("optgroup",{label:"Кусты целиком"});
+    var og=el("optgroup",{label:"Сквады целиком"});
     groups.forEach(function(g){
       var n=free.filter(function(s){return groupOf(s)===g;}).length;
-      og.appendChild(el("option",{value:"g:"+g,text:"Весь куст «"+g+"» — "+n+" шк."}));
+      og.appendChild(el("option",{value:"g:"+g,text:"Весь сквад «"+g+"» — "+n+" шк."}));
     });
     sel.appendChild(og);
   }
@@ -623,7 +631,11 @@ function schoolPicker(excludeIds, onPick){
       onPick(free.filter(function(s){return groupOf(s)===g;}).map(function(s){return s.id;}));
     } else onPick([v]);
   }});
-  return el("div",{class:"row"},[sel,btn]);
+  var box=el("div",{},[el("div",{class:"row"},[sel,btn])]);
+  if(!S.schools.some(function(s){ return groupOf(s); })){
+    box.appendChild(el("p",{class:"snote",text:"Чтобы добавлять школы группой, заполните поле «Сквад школ» во вкладке «Школы»: напишите одинаковое название у соседних сёл. Тогда здесь появится строка «Весь сквад»."}));
+  }
+  return box;
 }
 function rowsTable(rows, onCount, onRemove){
   var tb=el("tbody");
