@@ -381,7 +381,7 @@ input.inp,textarea.inp,.search{-webkit-appearance:none;appearance:none}
 
 <footer class="wrap">
   Билеты продаются на kassir.ru, справки по телефону кассы +7 928 009-73-00. Места в залах и данные по школам заполняются вручную.
-  <span class="snote">Версия сайта: 22.09.2026-6 (остаток по картам, контакты школ, общая база по коду, сквады, история, печать с QR-кодом).</span>
+  <span class="snote">Версия сайта: 22.09.2026-7 (афиша из общей базы, остаток по картам, контакты школ, общая база по коду, сквады, история, печать с QR-кодом).</span>
 </footer>
 
 <script>
@@ -441,6 +441,7 @@ var KEY = "akusha-pk-plan-v1";
 var CODE_KEY = "akusha-pk-code";
 var ACCESS = {code:null, role:null, label:null};
 var SYNC = {at:null, by:null, dirty:false, busy:false, err:null, conflict:null, timer:null};
+var AFISHA_AT = null;
 function freshState(){
   return {
     schools: START_SCHOOLS.map(function(s,i){return {id:"s"+(i+1), name:s[0], village:s[1], group:"", students:"", cards:""};}),
@@ -1108,6 +1109,17 @@ function applyServer(d){
   return false;
 }
 
+/* афиша хранится в базе отдельной строкой; встроенный список — запасной */
+function applyAfisha(af){
+  if(!af || !af.events || !af.events.length) return false;
+  EVENTS = af.events;
+  if(af.venues) VENUES = af.venues;
+  if(!evById(curEv)) curEv = EVENTS[0].id;
+  fillEventSelect(planSel);
+  planSel.value = curEv;
+  return true;
+}
+
 function pullState(done){
   api("afisha_load", {p_code:ACCESS.code}, function(err,res){
     if(err) return done({net:true});
@@ -1116,6 +1128,8 @@ function pullState(done){
     if(j.ok!==true) return done({bad:true, error:j.error});
     ACCESS.role=j.role; ACCESS.label=j.label;
     SYNC.at=j.updated_at; SYNC.by=j.updated_by;
+    AFISHA_AT=j.afisha_updated_at||null;
+    applyAfisha(j.afisha);
     var had=applyServer(j.data);
     done(null, {empty:!had});
   });
@@ -1154,10 +1168,12 @@ function refreshFromServer(){
     if(err) return;
     var j=res.body;
     if(!j || j.ok!==true) return;
-    if(j.updated_at===SYNC.at) return;
+    var afNew = (j.afisha_updated_at && j.afisha_updated_at!==AFISHA_AT);
+    if(j.updated_at===SYNC.at && !afNew) return;
     SYNC.at=j.updated_at; SYNC.by=j.updated_by;
-    if(applyServer(j.data)){ saveLocal(); renderAll(); showTab(CURTAB); }
-    setSync();
+    if(afNew){ AFISHA_AT=j.afisha_updated_at; applyAfisha(j.afisha); }
+    if(applyServer(j.data) || afNew){ saveLocal(); renderAll(); showTab(CURTAB); }
+    setSync(afNew?"афиша обновлена":undefined);
   });
 }
 

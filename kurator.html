@@ -129,7 +129,7 @@ footer.wrap{padding-top:20px;padding-bottom:40px}
 </main>
 <footer class="wrap">
   Билеты продаются на kassir.ru, справки по телефону кассы +7 928 009-73-00.
-  <span class="snote">Страница наблюдателя, версия 22.09.2026. Данные обновляются автоматически раз в минуту.</span>
+  <span class="snote">Страница наблюдателя, версия 22.09.2026-2. Афиша и данные берутся из общей базы, обновляются раз в минуту.</span>
 </footer>
 
 <script>
@@ -218,6 +218,10 @@ function load(first){
       return;
     }
     LABEL=j.label||""; AT=j.updated_at; BY=j.updated_by;
+    if(j.afisha && j.afisha.events && j.afisha.events.length){
+      EVENTS=j.afisha.events;
+      if(j.afisha.venues) VENUES=j.afisha.venues;
+    }
     var d=j.data||{};
     S={schools:(d.schools||[]), seats:(d.seats||{}), plan:(d.plan||{}), history:(d.history||[])};
     try{ localStorage.setItem(CODE_KEY, CODE); }catch(e){}
