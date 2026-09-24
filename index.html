@@ -293,6 +293,7 @@ input.inp,textarea.inp,.search{-webkit-appearance:none;appearance:none}
   <div class="row">
     <input class="inp" id="codeInput" type="text" inputmode="text" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="akusha-xxxx-xxxx" aria-label="Код доступа">
     <button class="btn" id="codeBtn">Войти</button>
+    <button class="btn ghost" id="retryBtn" hidden>Попробовать снова</button>
   </div>
   <p id="gateMsg" class="snote"></p>
 </div>
@@ -517,7 +518,7 @@ var START_SCHOOLS = [
  ["Шуктынская СОШ","Шукты"]
 ];
 
-var SITE_VERSION = "2026-09-22-11";
+var SITE_VERSION = "2026-09-24-12";
 var SB_URL = "https://hyjyfmgskcjijyyblvtg.supabase.co";
 var SB_KEY = "sb_publishable_IRpG1zauJd1OLm36YCB40w_gZr4emDL";
 var KEY = "akusha-pk-plan-v1";
@@ -550,6 +551,14 @@ function el(tag, attrs, kids){
   return n;
 }
 function num(v){ var n=parseInt(v,10); return isNaN(n)?0:n; }
+function schoolLabel(s){ return s.name+(s.village?" ("+s.village+")":""); }
+function byName(a,b){ return a.name.localeCompare(b.name,"ru"); }
+/* полоска заполнения: pct — процент, bad — красить тревожным цветом */
+function progressBar(pct, bad){
+  var i=el("i",{style:"width:"+Math.max(0,Math.min(100,pct))+"%"});
+  if(bad) i.className="over";
+  return el("div",{class:"bar"},[i]);
+}
 function evById(id){ for(var i=0;i<EVENTS.length;i++) if(EVENTS[i].id===id) return EVENTS[i]; return null; }
 function schoolById(id){ for(var i=0;i<S.schools.length;i++) if(S.schools[i].id===id) return S.schools[i]; return null; }
 function dParts(d){ var p=d.split("-"); return {y:+p[0], m:+p[1]-1, d:+p[2]}; }
@@ -661,10 +670,8 @@ function renderList(){
     var seats=num(S.seats[e.id]), pl=planned(e.id);
     var seatBlock=el("div",{class:"seatbar"});
     if(seats){
-      var pct=Math.min(100, Math.round(pl/seats*100));
       seatBlock.appendChild(el("small",{text:"Мест: "+seats+", запланировано "+pl}));
-      var bi=el("i",{style:"width:"+pct+"%"}); if(pl>seats) bi.className="over";
-      seatBlock.appendChild(el("div",{class:"bar"},[bi]));
+      seatBlock.appendChild(progressBar(Math.round(pl/seats*100), pl>seats));
     } else {
       seatBlock.appendChild(el("small",{text:pl?("Мест: уточняется, запланировано "+pl):"Мест: уточняется"}));
     }
@@ -794,7 +801,7 @@ function schoolPicker(excludeIds, onPick){
   var og2=el("optgroup",{label:groups.length?"Отдельные школы":"Школы"});
   free.slice().sort(function(a,b){return (a.group+a.village).localeCompare(b.group+b.village,"ru");}).forEach(function(s){
     var note=visitNote(s.id);
-    var lbl=s.name+(s.village?" ("+s.village+")":"")+(note?" · "+note:"");
+    var lbl=schoolLabel(s)+(note?" · "+note:"");
     og2.appendChild(el("option",{value:s.id,text:lbl}));
   });
   sel.appendChild(og2);
@@ -815,7 +822,7 @@ function schoolPicker(excludeIds, onPick){
     }).forEach(function(s){
       var cb=el("input",{type:"checkbox",value:s.id});
       var g=groupOf(s), note=visitNote(s.id);
-      var txt=s.name+(s.village?" ("+s.village+")":"");
+      var txt=schoolLabel(s);
       var sub=(g?"сквад: "+g:"без сквада")+(note?" · "+note:"");
       wrap.appendChild(el("label",{class:"mrow"},[cb,
         el("span",{},[el("span",{text:txt}), el("small",{class:"snote",text:sub})])]));
@@ -932,7 +939,7 @@ function renderHistList(){
     var v=VENUES[h.venue]||{name:"",addr:""};
     var det=el("details",{class:"more"},[el("summary",{text:"Какие школы были ("+h.rows.length+")"})]);
     h.rows.forEach(function(r){
-      det.appendChild(el("p",{class:"place",style:"margin:3px 0",text:"• "+r.name+(r.village?" ("+r.village+")":"")+" — "+num(r.count)+" уч."}));
+      det.appendChild(el("p",{class:"place",style:"margin:3px 0",text:"• "+schoolLabel(r)+" — "+num(r.count)+" уч."}));
     });
     box.appendChild(el("div",{class:"hist"},[
       el("div",{class:"row",style:"margin:0;justify-content:space-between;align-items:flex-start;flex-wrap:nowrap"},[
@@ -970,7 +977,7 @@ function renderHistSchools(){
     return {x:x, n:v.n, last:v.last, pupils:pupils};
   }).sort(function(a,b){
     if(a.n!==b.n) return b.n-a.n;
-    return a.x.name.localeCompare(b.x.name,"ru");
+    return byName(a.x,b.x);
   }).forEach(function(row){
     var c=cardsOf(row.x.id), left=(c===null?null:Math.max(0,c-row.pupils));
     tb.appendChild(el("tr",{},[
@@ -1064,7 +1071,7 @@ function renderContacts(){
     box.appendChild(el("div",{class:"empty",text:"Ничего не нашлось. Измените запрос."}));
     return;
   }
-  list.slice().sort(function(a,b){ return a.name.localeCompare(b.name,"ru"); }).forEach(function(s){
+  list.slice().sort(byName).forEach(function(s){
     var ph=fmtPhone(s.phone);
     var card=el("div",{class:"contact"},[
       el("h4",{text:s.name}),
@@ -1121,16 +1128,14 @@ function wCard(title, meta, rows, seats){
     rows.slice().sort(function(a,b){ return num(b.count)-num(a.count); }).forEach(function(r){
       var sc=schoolById(r.schoolId)||{};
       var nm=r.name||sc.name||"Школа удалена", vl=r.village||sc.village||"";
-      ul.appendChild(el("li",{text:nm+(vl?" ("+vl+")":"")+" — "+num(r.count)+" "+plural(num(r.count),"ученик","ученика","учеников")}));
+      ul.appendChild(el("li",{text:schoolLabel({name:nm,village:vl})+" — "+num(r.count)+" "+plural(num(r.count),"ученик","ученика","учеников")}));
     });
     card.appendChild(ul);
   } else card.appendChild(el("p",{class:"meta",text:"Школы пока не записаны."}));
   card.appendChild(el("p",{class:"tot",text:"Итого: "+total+" "+plural(total,"ученик","ученика","учеников")+
     (rows.length?" из "+rows.length+" "+plural(rows.length,"школы","школ","школ"):"")}));
   if(seats){
-    var pct=Math.min(100, Math.round(total/seats*100));
-    var i=el("i",{style:"width:"+pct+"%"}); if(total>seats) i.className="over";
-    card.appendChild(el("div",{class:"bar"},[i]));
+    card.appendChild(progressBar(Math.round(total/seats*100), total>seats));
     card.appendChild(el("span",{class:"snote",text: total>seats
       ? ("Мест "+seats+", записано "+total+" — не хватает "+(total-seats))
       : ("Мест "+seats+", свободно "+(seats-total))}));
@@ -1171,96 +1176,91 @@ function wNext(){
   if(!any) box.appendChild(el("div",{class:"empty",text:"Все мероприятия афиши уже отмечены как проведённые."}));
 }
 
-function wChip(cur,id,label,fn){
-  return el("button",{class:"chip","aria-pressed":cur===id?"true":"false",text:label,onclick:fn});
-}
+/* Список школ с фильтрами и полосками. Обе сводки наблюдателя —
+   по картам и по выездам — отличаются только описанием cfg. */
+var LIST_FILTER={};
+function filteredSchoolList(cfg){
+  var cur=LIST_FILTER[cfg.list]||"all";
+  var f=document.getElementById(cfg.chips); f.textContent="";
+  cfg.filters.forEach(function(ft){
+    f.appendChild(el("button",{class:"chip","aria-pressed":cur===ft.id?"true":"false",
+      text:ft.label+" ("+cfg.rows.filter(ft.test).length+")",
+      onclick:function(){ LIST_FILTER[cfg.list]=ft.id; cfg.redraw(); }}));
+  });
+  var active=cfg.filters.filter(function(ft){ return ft.id===cur; })[0] || cfg.filters[0];
+  var list=cfg.rows.filter(active.test).sort(cfg.sort);
 
-var WCARD="all";
+  var box=document.getElementById(cfg.list); box.textContent="";
+  if(!list.length){ box.appendChild(el("div",{class:"empty",text:"В этом списке пока никого нет."})); return; }
+  list.forEach(function(r){
+    var row=el("div",{class:"srow"},[el("div",{class:"stop"},[
+      el("span",{class:"sname",text:schoolLabel(r.s)}),
+      el("span",{class:"snum",text:cfg.number(r)})])]);
+    var b=cfg.bar(r); if(b) row.appendChild(progressBar(b.pct, b.bad));
+    row.appendChild(el("span",{class:"snote"+(cfg.warn(r)?" warn":""),text:cfg.tail(r)}));
+    box.appendChild(row);
+  });
+}
+function anySchool(){ return true; }
+
 function wCards(){
-  var all=S.schools.map(function(x){
-    var a=num(x.students), c=num(x.cards);
-    return {s:x, a:a, c:c, left:Math.max(0,a-c), pct:a?Math.round(c/a*100):null};
-  });
-  var f=document.getElementById("wCardFilter"); f.textContent="";
-  function ch(id,label){ return wChip(WCARD,id,label,function(){ WCARD=id; wCards(); }); }
-  f.appendChild(ch("all","Все школы ("+all.length+")"));
-  f.appendChild(ch("zero","Без единой карты ("+all.filter(function(r){return r.a>0&&r.c===0;}).length+")"));
-  f.appendChild(ch("low","Охват ниже 50% ("+all.filter(function(r){return r.a>0&&r.pct<50;}).length+")"));
-  f.appendChild(ch("full","Полный охват ("+all.filter(function(r){return r.a>0&&r.pct>=100;}).length+")"));
-
-  var list=all.filter(function(r){
-    if(WCARD==="zero") return r.a>0 && r.c===0;
-    if(WCARD==="low")  return r.a>0 && r.pct<50;
-    if(WCARD==="full") return r.a>0 && r.pct>=100;
-    return true;
-  }).sort(function(x,y){
-    if(x.a===0 && y.a!==0) return 1;
-    if(y.a===0 && x.a!==0) return -1;
-    if(x.pct!==y.pct) return (x.pct||0)-(y.pct||0);
-    return y.left-x.left;
-  });
-
-  var box=document.getElementById("wCardList"); box.textContent="";
-  if(!list.length){ box.appendChild(el("div",{class:"empty",text:"В этом списке пока никого нет."})); return; }
-  list.forEach(function(r){
-    var row=el("div",{class:"srow"},[el("div",{class:"stop"},[
-      el("span",{class:"sname",text:r.s.name+(r.s.village?" ("+r.s.village+")":"")}),
-      el("span",{class:"snum",text:r.a?(r.c+" / "+r.a):"нет 14+"})])]);
-    if(r.a){
-      var i=el("i",{style:"width:"+Math.min(100,r.pct)+"%"});
-      if(r.pct<50) i.className="over";
-      row.appendChild(el("div",{class:"bar"},[i]));
+  filteredSchoolList({
+    chips:"wCardFilter", list:"wCardList", redraw:wCards,
+    rows:S.schools.map(function(x){
+      var a=num(x.students), c=num(x.cards);
+      return {s:x, a:a, c:c, left:Math.max(0,a-c), pct:a?Math.round(c/a*100):null};
+    }),
+    filters:[
+      {id:"all",  label:"Все школы",        test:anySchool},
+      {id:"zero", label:"Без единой карты", test:function(r){ return r.a>0 && r.c===0; }},
+      {id:"low",  label:"Охват ниже 50%",   test:function(r){ return r.a>0 && r.pct<50; }},
+      {id:"full", label:"Полный охват",     test:function(r){ return r.a>0 && r.pct>=100; }}
+    ],
+    sort:function(x,y){
+      if(x.a===0 && y.a!==0) return 1;
+      if(y.a===0 && x.a!==0) return -1;
+      if(x.pct!==y.pct) return (x.pct||0)-(y.pct||0);
+      return y.left-x.left;
+    },
+    number:function(r){ return r.a ? (r.c+" / "+r.a) : "нет 14+"; },
+    bar:   function(r){ return r.a ? {pct:r.pct, bad:r.pct<50} : null; },
+    warn:  function(r){ return r.a && r.pct<50; },
+    tail:  function(r){
+      if(!r.a) return "Учащихся 14–18 лет нет.";
+      if(!r.c) return "Карт не оформлено ни одной. Учащихся 14–18: "+r.a+".";
+      if(r.left) return "Охват "+r.pct+"%. Без карты ещё "+r.left+" "+plural(r.left,"ученик","ученика","учеников")+".";
+      return "Карты оформлены у всех.";
     }
-    var tail;
-    if(!r.a) tail="Учащихся 14–18 лет нет.";
-    else if(!r.c) tail="Карт не оформлено ни одной. Учащихся 14–18: "+r.a+".";
-    else if(r.left) tail="Охват "+r.pct+"%. Без карты ещё "+r.left+" "+plural(r.left,"ученик","ученика","учеников")+".";
-    else tail="Карты оформлены у всех.";
-    row.appendChild(el("span",{class:"snote"+((r.a&&r.pct<50)?" warn":""),text:tail}));
-    box.appendChild(row);
   });
 }
 
-var WTRIP="all";
 function wTrips(){
-  var all=S.schools.map(function(x){
-    var t=taken(x.id), c=num(x.cards);
-    return {s:x, t:t, c:c, left:Math.max(0,c-t), last:visits(x.id).last};
-  });
-  var f=document.getElementById("wTripFilter"); f.textContent="";
-  function ch(id,label){ return wChip(WTRIP,id,label,function(){ WTRIP=id; wTrips(); }); }
-  f.appendChild(ch("all","Все школы ("+all.length+")"));
-  f.appendChild(ch("went","Уже ездили ("+all.filter(function(r){return r.t>0;}).length+")"));
-  f.appendChild(ch("todo","Ещё не возили ("+all.filter(function(r){return r.t===0&&r.c>0;}).length+")"));
-
-  var list=all.filter(function(r){
-    if(WTRIP==="went") return r.t>0;
-    if(WTRIP==="todo") return r.t===0 && r.c>0;
-    return true;
-  }).sort(function(a,b){
-    if(b.t!==a.t) return b.t-a.t;
-    if(b.c!==a.c) return b.c-a.c;
-    return a.s.name.localeCompare(b.s.name,"ru");
-  });
-
-  var box=document.getElementById("wTripList"); box.textContent="";
-  if(!list.length){ box.appendChild(el("div",{class:"empty",text:"В этом списке пока никого нет."})); return; }
-  list.forEach(function(r){
-    var row=el("div",{class:"srow"},[el("div",{class:"stop"},[
-      el("span",{class:"sname",text:r.s.name+(r.s.village?" ("+r.s.village+")":"")}),
-      el("span",{class:"snum",text:r.c?(r.t+" / "+r.c):"нет карт"})])]);
-    if(r.c){
-      var i=el("i",{style:"width:"+Math.min(100,Math.round(r.t/r.c*100))+"%"});
-      if(r.t>r.c) i.className="over";
-      row.appendChild(el("div",{class:"bar"},[i]));
+  filteredSchoolList({
+    chips:"wTripFilter", list:"wTripList", redraw:wTrips,
+    rows:S.schools.map(function(x){
+      var t=taken(x.id), c=num(x.cards);
+      return {s:x, t:t, c:c, left:Math.max(0,c-t), last:visits(x.id).last};
+    }),
+    filters:[
+      {id:"all",  label:"Все школы",     test:anySchool},
+      {id:"went", label:"Уже ездили",    test:function(r){ return r.t>0; }},
+      {id:"todo", label:"Ещё не возили", test:function(r){ return r.t===0 && r.c>0; }}
+    ],
+    sort:function(a,b){
+      if(b.t!==a.t) return b.t-a.t;
+      if(b.c!==a.c) return b.c-a.c;
+      return byName(a.s,b.s);
+    },
+    number:function(r){ return r.c ? (r.t+" / "+r.c) : "нет карт"; },
+    bar:   function(r){ return r.c ? {pct:Math.round(r.t/r.c*100), bad:r.t>r.c} : null; },
+    warn:  function(r){ return r.c && !r.t; },
+    tail:  function(r){
+      if(!r.c) return "Детей с Пушкинской картой нет — приглашать пока некого.";
+      if(!r.t) return "Ещё ни разу не выезжали.";
+      var last=ruDate(r.last.date)+" — "+r.last.title+".";
+      return r.left ? "Осталось вывезти: "+r.left+". Последний выезд: "+last
+                    : "Все съездили. Последний выезд: "+last;
     }
-    var tail;
-    if(!r.c) tail="Детей с Пушкинской картой нет — приглашать пока некого.";
-    else if(!r.t) tail="Ещё ни разу не выезжали.";
-    else if(r.left) tail="Осталось вывезти: "+r.left+". Последний выезд: "+ruDate(r.last.date)+" — "+r.last.title+".";
-    else tail="Все съездили. Последний выезд: "+ruDate(r.last.date)+" — "+r.last.title+".";
-    row.appendChild(el("span",{class:"snote"+((r.c&&!r.t)?" warn":""),text:tail}));
-    box.appendChild(row);
   });
 }
 
@@ -1301,7 +1301,7 @@ function summarySheet(){
   S.schools.slice().map(function(x){
     var a=num(x.students), c=num(x.cards);
     return {s:x, a:a, c:c, pct:a?Math.round(c/a*100):null, t:taken(x.id)};
-  }).sort(function(a,b){ return a.s.name.localeCompare(b.s.name,"ru"); }).forEach(function(r,i){
+  }).sort(function(a,b){ return byName(a.s,b.s); }).forEach(function(r,i){
     tb.appendChild(el("tr",{},[
       el("td",{class:"n",text:String(i+1)}),
       el("td",{},[el("span",{text:r.s.name}),
@@ -1482,19 +1482,46 @@ function renderAll(){
 }
 
 /* ---------- общая база ---------- */
+var API_TIMEOUT = 15000;   /* столько ждём ответа базы, потом сдаёмся */
+
 function api(fn, body, done){
-  var ok=true;
+  var fired=false, ctrl=null, timer;
+  function finish(err,res){ if(fired) return; fired=true; clearTimeout(timer); done(err,res); }
+  try{ ctrl=new AbortController(); }catch(e){}
+  timer=setTimeout(function(){
+    try{ if(ctrl) ctrl.abort(); }catch(e){}
+    finish({timeout:true});
+  }, API_TIMEOUT);
   fetch(SB_URL+"/rest/v1/rpc/"+fn, {
     method:"POST",
     headers:{"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY,"Content-Type":"application/json"},
-    body:JSON.stringify(body)
+    body:JSON.stringify(body),
+    signal: ctrl ? ctrl.signal : undefined
   }).then(function(r){
     return r.text().then(function(t){
       var j=null; try{ j=JSON.parse(t); }catch(e){}
-      return {status:r.status, body:j, raw:t};
+      return {status:r.status, body:j};
     });
-  }).then(function(res){ if(ok){ ok=false; done(null,res); } })
-    .catch(function(e){ if(ok){ ok=false; done(e||new Error("network")); } });
+  }).then(function(res){ finish(null,res); })
+    .catch(function(){ finish({net:true}); });
+}
+
+/* Что на самом деле произошло с запросом. Раньше любой непонятный ответ
+   считался «неверным кодом» — и спящая база стирала сохранённый код. */
+function outcome(err,res){
+  if(err) return err.timeout ? "timeout" : "net";
+  var j=res && res.body;
+  if(!res || res.status>=400 || !j || typeof j!=="object") return "server";
+  if(j.ok===true) return "ok";
+  if(j.error==="bad_code" || j.error==="conflict" || j.error==="read_only") return j.error;
+  return "server";
+}
+
+function connMsg(kind, status){
+  if(kind==="timeout") return "База не отвечает дольше 15 секунд — похоже, слабая связь. Код сохранён, нажмите «Попробовать снова».";
+  if(kind==="net") return "Нет связи с интернетом. Код сохранён — как появится связь, нажмите «Попробовать снова».";
+  return "База временно недоступна"+(status?" (ошибка "+status+")":"")+". Дело не в коде — он сохранён. "+
+         "Попробуйте через пару минут. Если так больше часа, база могла уснуть от бездействия: напишите тому, кто настраивал сайт.";
 }
 
 function applyServer(d){
@@ -1506,10 +1533,16 @@ function applyServer(d){
 }
 
 /* афиша хранится в базе отдельной строкой; встроенный список — запасной */
+function verCmp(a,b){
+  var x=String(a).split(/\D+/), y=String(b).split(/\D+/), n=Math.max(x.length,y.length);
+  for(var i=0;i<n;i++){ var p=+(x[i]||0), q=+(y[i]||0); if(p!==q) return p<q?-1:1; }
+  return 0;
+}
+
 function checkVersion(af){
   var want = af && af.site && af.site.version;
   var bar = document.getElementById("updBar");
-  if(!want || want===SITE_VERSION){ bar.hidden=true; return; }
+  if(!want || verCmp(want, SITE_VERSION)<=0){ bar.hidden=true; return; }
   bar.hidden=false; bar.textContent="";
   bar.appendChild(el("span",{class:"who"},[
     el("b",{text:"Вышла новая версия сайта"}),
@@ -1533,10 +1566,9 @@ function applyAfisha(af){
 
 function pullState(done){
   api("afisha_load", {p_code:ACCESS.code}, function(err,res){
-    if(err) return done({net:true});
+    var o=outcome(err,res);
+    if(o!=="ok") return done({kind:o, status:res && res.status});
     var j=res.body;
-    if(!j || typeof j!=="object") return done({net:true});
-    if(j.ok!==true) return done({bad:true, error:j.error});
     ACCESS.role=j.role; ACCESS.label=j.label;
     SYNC.at=j.updated_at; SYNC.by=j.updated_by;
     AFISHA_AT=j.afisha_updated_at||null;
@@ -1561,12 +1593,13 @@ function doPush(){
   SYNC.busy=true; setSync();
   api("afisha_save", {p_code:ACCESS.code, p_data:payload(), p_since:SYNC.at}, function(err,res){
     SYNC.busy=false;
-    if(err){ SYNC.err="net"; setSync(); clearTimeout(SYNC.timer); SYNC.timer=setTimeout(doPush,6000); return; }
-    var j=res.body||{};
-    if(j.ok===true){ SYNC.at=j.updated_at; SYNC.by=j.updated_by; SYNC.dirty=false; SYNC.err=null; SYNC.conflict=null; setSync(); return; }
-    if(j.error==="conflict"){ SYNC.err="conflict"; SYNC.conflict=j; setSync(); return; }
-    if(j.error==="bad_code"){ SYNC.err="bad_code"; ACCESS.role=null; setSync(); showTab(CURTAB); return; }
-    SYNC.err=j.error||"error"; setSync();
+    var o=outcome(err,res), j=(res && res.body) || {};
+    if(o==="ok"){ SYNC.at=j.updated_at; SYNC.by=j.updated_by; SYNC.dirty=false; SYNC.err=null; SYNC.conflict=null; setSync(); return; }
+    if(o==="conflict"){ SYNC.err="conflict"; SYNC.conflict=j; setSync(); return; }
+    if(o==="read_only"){ SYNC.err="read_only"; setSync(); return; }
+    if(o==="bad_code"){ logout(); gateMsg("Код перестал действовать — его сменили. Введите новый.","warn"); return; }
+    /* нет связи, таймаут или база недоступна: правка цела в браузере, пробуем снова */
+    SYNC.err=o; setSync(); clearTimeout(SYNC.timer); SYNC.timer=setTimeout(doPush,8000);
   });
 }
 
@@ -1645,6 +1678,8 @@ function setSync(txt){
   var who = ACCESS.role==="editor" ? "вы: "+ACCESS.label : "только просмотр — "+ACCESS.label;
   var state;
   if(SYNC.err==="net") state="нет связи, изменения не сохранены — пробую ещё раз";
+  else if(SYNC.err==="timeout") state="база не отвечает, изменения не сохранены — пробую ещё раз";
+  else if(SYNC.err==="server") state="база временно недоступна, изменения не сохранены — пробую ещё раз";
   else if(SYNC.err==="read_only") state="изменять нельзя, у вас доступ только на просмотр";
   else if(SYNC.err==="bad_code") state="код перестал действовать, войдите заново";
   else if(SYNC.busy||SYNC.dirty) state="сохраняю…";
@@ -1676,12 +1711,20 @@ function gateMsg(t, cls){
 
 function unlock(){
   gateMsg("Проверяем код…");
+  document.getElementById("retryBtn").hidden=true;
   pullState(function(err, info){
-    if(err && err.net){ gateMsg("Нет связи с интернетом. Проверьте подключение и нажмите «Войти» ещё раз.","warn"); return; }
-    if(err){
+    if(err && err.kind==="bad_code"){
       ACCESS.role=null;
       try{ localStorage.removeItem(CODE_KEY); }catch(e){}
       gateMsg("Такого кода нет. Проверьте, что он введён целиком и без лишних пробелов.","warn");
+      return;
+    }
+    if(err){
+      /* связь или база подвели — код правильный, стирать его нельзя */
+      ACCESS.role=null;
+      gateMsg(connMsg(err.kind, err.status),"warn");
+      document.getElementById("retryBtn").hidden=false;
+      document.getElementById("gate").hidden=false;
       return;
     }
     try{ localStorage.setItem(CODE_KEY, ACCESS.code); }catch(e){}
@@ -1701,6 +1744,10 @@ document.getElementById("codeBtn").addEventListener("click",function(){
   var v=document.getElementById("codeInput").value.trim().toLowerCase();
   if(!v){ gateMsg("Введите код.","warn"); return; }
   ACCESS.code=v; unlock();
+});
+document.getElementById("retryBtn").addEventListener("click",function(){
+  if(!ACCESS.code){ gateMsg("Введите код.","warn"); return; }
+  unlock();
 });
 document.getElementById("codeInput").addEventListener("keydown",function(e){
   if(e.key==="Enter"){ e.preventDefault(); document.getElementById("codeBtn").click(); }
