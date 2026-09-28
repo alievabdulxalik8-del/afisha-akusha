@@ -1,7 +1,24 @@
 # Переезд бэкенда афиши: Supabase → Yandex Cloud
 
-Статус: **ждём ручные шаги в консоли** (каталог, сервисный аккаунт, ключ, доступ к сети).
-Сайт пока работает на Supabase, ничего не переключено.
+Статус: **код готов и проверен локально, в облако ещё не выложен.** Ключ `afisha-deploy` в переменных среды есть,
+`*.yandexcloud.net` открыт; сессия Claude не получила разрешения пустить ключ в дело — `yc/deploy.py`
+нужно запустить (или разрешить Claude запустить) вручную. Сайт пока работает на Supabase, ничего не переключено.
+
+## Что уже сделано (код в `yc/`)
+- `yc/function/` — Cloud Function: `logic.py` (ответы как у RPC Supabase, коды по scrypt-хешу, опрос `since` → `unchanged`),
+  `store.py` (YDB, сериализуемая транзакция при сохранении), `index.py` (HTTP, CORS, `text/plain`).
+- `yc/schema.yql` — таблицы `access`, `state`, `meta`.
+- `yc/tests/test_logic.py` — 17 проверок без облака: `python3 -m unittest discover -s yc/tests`.
+- `yc/deploy.py` — `check` / `setup` / `deploy` / `copy` / `verify` / `set-events`; `verify` — сверка с Supabase и проверки этапа 2.
+- `index.html` — переключатель `YC_URL`: пусто → Supabase (как сейчас), адрес функции → Yandex Cloud.
+  Проверено в Chromium на локальной копии функции: вход, опрос без лишнего OPTIONS, сохранение; в режиме Supabase запросы прежние.
+
+## Что осталось по шагам
+1. `pip install pyjwt cryptography requests "ydb>=3.18,<4"`, затем `python3 yc/deploy.py check`, потом `setup`.
+   Роль `editor` не даёт выдавать роли: если `setup` об этом скажет — выдать `afisha-fn` роль `ydb.editor` в консоли и повторить `setup`.
+2. `AFISHA_CODE_EDITOR=… AFISHA_CODE_VIEWER=… python3 yc/deploy.py copy`, затем `… verify`; RU опроса — в мониторинге YDB.
+3. Переключение: снова `copy` (свежие данные) → в Supabase `afisha_save` вернуть `read_only` всем → в `index.html`
+   `YC_URL` = адрес функции, поднять `SITE_VERSION` → `set-events` с той же `site.version`.
 
 ## Цель
 Афиша — независимый проект, без общей базы с другим проектом в Supabase.
@@ -31,7 +48,7 @@
 0. Вручную: каталог `afisha`, СА `afisha-deploy` (`editor` + `functions.admin` на каталог), авторизованный ключ → переменные среды `YC_KEY_ID`, `YC_SA_ID`, `YC_PRIVATE_KEY` (форма среды не принимает многострочный JSON; в `YC_PRIVATE_KEY` переносы могут быть как `\n`-экранами, так и настоящими — обработать оба случая; после переезда переменные удалить, ключ в консоли отозвать), разрешить домены `*.yandexcloud.net`, `api.cloud.yandex.net`, `*.api.cloud.yandex.net`, бюджет 100 ₽.
 1. Поднять YDB, таблицы, `afisha-fn`, функцию; залить копию данных, коды — хешами.
 2. Проверить на копии: побайтное совпадение данных, 11 регрессионных проверок, неверный код, куратор не пишет, конфликт, CORS, замер RU.
-3. Переключить: свежая копия данных → старый `afisha_save` в Supabase на «только чтение» → новый `index.html` + `SITE_VERSION` и `site.version`.
+3. Переключить (порядок выше): свежая копия данных → старый `afisha_save` в Supabase на «только чтение» → новый `index.html` + `SITE_VERSION` и `site.version`.
 4. Неделю держать старые таблицы. Удалить четыре объекта **только после подтверждения владельца**.
 5. Обновить README: где что лежит, как обновлять мероприятия, как делать резервную копию.
 6. Удалить ключ `afisha-deploy` (для работы сайта не нужен).

@@ -522,6 +522,8 @@ var START_SCHOOLS = [
 var SITE_VERSION = "2026-09-25-13";
 var SB_URL = "https://hyjyfmgskcjijyyblvtg.supabase.co";
 var SB_KEY = "sb_publishable_IRpG1zauJd1OLm36YCB40w_gZr4emDL";
+/* Бэкенд в Yandex Cloud (см. MIGRATION.md). Пока пусто — работает Supabase. */
+var YC_URL = "";
 var KEY = "akusha-pk-plan-v1";
 var CODE_KEY = "akusha-pk-code";
 var ACCESS = {code:null, role:null, label:null};
@@ -1506,12 +1508,20 @@ function api(fn, body, done){
     try{ if(ctrl) ctrl.abort(); }catch(e){}
     finish({timeout:true});
   }, API_TIMEOUT);
-  fetch(SB_URL+"/rest/v1/rpc/"+fn, {
-    method:"POST",
-    headers:{"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY,"Content-Type":"application/json"},
-    body:JSON.stringify(body),
-    signal: ctrl ? ctrl.signal : undefined
-  }).then(function(r){
+  var url, opts;
+  if(YC_URL){
+    /* text/plain — простой запрос, браузер не шлёт лишний OPTIONS */
+    var q={op: fn==="afisha_save" ? "save" : "load", code: body.p_code};
+    if(fn==="afisha_save"){ q.data=body.p_data; q.since=body.p_since; }
+    else if(body.since!==undefined){ q.since=body.since; q.afisha_since=body.afisha_since; }
+    url=YC_URL; opts={method:"POST", headers:{"Content-Type":"text/plain;charset=UTF-8"}, body:JSON.stringify(q)};
+  } else {
+    var b={}; for(var k in body){ if(k.indexOf("p_")===0) b[k]=body[k]; }
+    url=SB_URL+"/rest/v1/rpc/"+fn;
+    opts={method:"POST", headers:{"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY,"Content-Type":"application/json"}, body:JSON.stringify(b)};
+  }
+  opts.signal = ctrl ? ctrl.signal : undefined;
+  fetch(url, opts).then(function(r){
     return r.text().then(function(t){
       var j=null; try{ j=JSON.parse(t); }catch(e){}
       return {status:r.status, body:j};
@@ -1622,10 +1632,11 @@ function refreshFromServer(){
   if(document.hidden) return;
   var a=document.activeElement;
   if(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return;
-  api("afisha_load", {p_code:ACCESS.code}, function(err,res){
+  /* since: новый бэкенд отвечает «без изменений», не пересылая данные */
+  api("afisha_load", {p_code:ACCESS.code, since:SYNC.at, afisha_since:AFISHA_AT}, function(err,res){
     if(err) return;
     var j=res.body;
-    if(!j || j.ok!==true) return;
+    if(!j || j.ok!==true || j.unchanged) return;
     var afNew = (j.afisha_updated_at && j.afisha_updated_at!==AFISHA_AT);
     if(j.updated_at===SYNC.at && !afNew) return;
     SYNC.at=j.updated_at; SYNC.by=j.updated_by;

@@ -1,0 +1,27 @@
+-- Схема YDB для афиши (база afisha-db, каталог afisha).
+-- access: коды хранятся только хешем scrypt (n=2^14, r=8, p=1, 32 байта) с солью 16 байт.
+CREATE TABLE access (
+    id Utf8 NOT NULL,        -- editor / viewer
+    salt String,
+    hash String,
+    role Utf8,               -- editor | viewer
+    label Utf8,              -- «Организатор», «Куратор»
+    PRIMARY KEY (id)
+);
+
+-- state: строки akusha (школы, план, история) и events (афиша, площадки, site.version).
+-- data — текст JSON как есть; updated_at — ISO-строка с микросекундами и +00:00.
+CREATE TABLE state (
+    id Utf8 NOT NULL,
+    data Utf8,
+    updated_at Utf8,
+    updated_by Utf8,
+    PRIMARY KEY (id)
+);
+
+-- meta: только отметки времени — опрос «есть ли изменения» не читает сами данные.
+CREATE TABLE meta (
+    id Utf8 NOT NULL,
+    updated_at Utf8,
+    PRIMARY KEY (id)
+);
