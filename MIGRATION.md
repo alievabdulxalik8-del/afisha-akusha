@@ -1,12 +1,21 @@
 # Переезд бэкенда афиши: Supabase → Yandex Cloud
 
-Статус: **код готов и проверен локально, в облако ещё не выложен.** Ключ `afisha-deploy` в переменных среды есть,
-`*.yandexcloud.net` открыт; сессия Claude не получила разрешения пустить ключ в дело — `yc/deploy.py`
-нужно запустить (или разрешить Claude запустить) вручную. Сайт пока работает на Supabase, ничего не переключено.
+Статус: **в облаке поднято, ждём одну ручную роль.** Созданы YDB `afisha-db`, СА `afisha-fn`, функции
+`afisha-api` (публичная, https://functions.yandexcloud.net/d4e8n3j9esf1uq386ik3) и `afisha-admin` (закрытая,
+служебная). Таблиц и данных ещё нет: `afisha-fn` не может войти в YDB — роль `editor` у `afisha-deploy`
+не позволяет выдавать роли. Сайт работает на Supabase, ничего не переключено.
+
+**Нужно вручную:** консоль → каталог `afisha` → Права доступа → Назначить роли → `afisha-fn` → `ydb.editor`.
+После этого: `python3 yc/deploy.py setup` (создаст таблицы), затем `copy` и `verify`.
+
+Почему две функции: прокси среды Claude пропускает только HTTPS на 443, а YDB — это gRPC на 2135.
+Поэтому таблицы и перенос данных делает закрытая `afisha-admin` изнутри облака; вызвать её можно только
+с ролью на каталог. Коды доступа в неё приходят уже хешем.
 
 ## Что уже сделано (код в `yc/`)
 - `yc/function/` — Cloud Function: `logic.py` (ответы как у RPC Supabase, коды по scrypt-хешу, опрос `since` → `unchanged`),
-  `store.py` (YDB, сериализуемая транзакция при сохранении), `index.py` (HTTP, CORS, `text/plain`).
+  `store.py` (YDB, сериализуемая транзакция при сохранении), `index.py` (HTTP, CORS, `text/plain`),
+  `admin.py` (закрытая служебная: схема, запись кодов-хешей и данных).
 - `yc/schema.yql` — таблицы `access`, `state`, `meta`.
 - `yc/tests/test_logic.py` — 17 проверок без облака: `python3 -m unittest discover -s yc/tests`.
 - `yc/deploy.py` — `check` / `setup` / `deploy` / `copy` / `verify` / `set-events`; `verify` — сверка с Supabase и проверки этапа 2.

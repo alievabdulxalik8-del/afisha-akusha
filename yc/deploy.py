@@ -33,6 +33,7 @@ FOLDER_ID = "b1gi8forub14au4jm25l"
 DB_NAME = "afisha-db"
 FN_SA_NAME = "afisha-fn"
 FN_NAME = "afisha-api"
+ADMIN_NAME = "afisha-admin"
 SB_URL = "https://hyjyfmgskcjijyyblvtg.supabase.co"
 SB_KEY = "sb_publishable_IRpG1zauJd1OLm36YCB40w_gZr4emDL"  # публичный, тот же, что в index.html
 SITE_ORIGIN = "https://alievabdulxalik8-del.github.io"
@@ -76,7 +77,16 @@ def iam_token():
 
 
 def call(method, url, body=None, ok=(200,)):
-    r = requests.request(method, url, json=body, timeout=60, headers={"Authorization": "Bearer " + iam_token()})
+    for i in range(5):
+        try:
+            r = requests.request(method, url, json=body, timeout=60, headers={"Authorization": "Bearer " + iam_token()})
+            break
+        except requests.ConnectionError:
+            # обрывы соединения через прокси бывают; GET и POST здесь можно повторить —
+            # создание ресурса перед этим ищется по имени
+            if i == 4:
+                raise
+            time.sleep(2 ** i)
     if r.status_code not in ok:
         raise RuntimeError("%s %s → %s %s" % (method, url, r.status_code, r.text[:500]))
     return r.json() if r.text else {}
@@ -119,31 +129,27 @@ def db_conn(db):
     return host, q
 
 
-def ydb_pool(db):
-    import ydb
-    host, path = db_conn(db)
-    driver = ydb.Driver(endpoint=host, database=path, credentials=ydb.AccessTokenCredentials(iam_token()))
-    driver.wait(timeout=20, fail_fast=True)
-    return ydb.QuerySessionPool(driver)
-
-
-def ensure_tables(db):
-    pool = ydb_pool(db)
-    rows = pool.execute_with_retries("SELECT 1 AS x;")  # связь есть
-    assert rows
-    for stmt in open(os.path.join(HERE, "schema.yql"), encoding="utf-8").read().split(";"):
-        body = "\n".join(l for l in stmt.splitlines() if not l.strip().startswith("--")).strip()
-        if not body:
-            continue
-        name = body.split()[2]
+def admin(q):
+    """Вызов закрытой функции afisha-admin: YDB — это gRPC, а отсюда до функций есть только HTTPS."""
+    fn = find(FN_API + "/functions", "functions", ADMIN_NAME) or sys.exit("нет afisha-admin, сначала setup")
+    for i in range(5):
         try:
-            pool.execute_with_retries(body + ";")
-            print("  таблица", name, "создана")
-        except Exception as e:
-            if "already exists" in str(e) or "path exist" in str(e).lower():
-                print("  таблица", name, "уже есть")
-            else:
+            r = requests.post(fn_url(fn), data=json.dumps(q, ensure_ascii=False).encode(), timeout=60,
+                              headers={"Authorization": "Bearer " + iam_token(), "Content-Type": "application/json"})
+            break
+        except requests.ConnectionError:
+            if i == 4:
                 raise
+            time.sleep(2 ** i)
+    j = r.json() if r.text.startswith("{") else {}
+    if r.status_code != 200 or not j.get("ok"):
+        raise RuntimeError("afisha-admin %s → %s %s" % (q.get("op"), r.status_code, r.text[:500]))
+    return j
+
+
+def ensure_tables():
+    for t in admin({"op": "schema"})["tables"]:
+        print("  таблица", t)
 
 
 def ensure_fn_sa():
@@ -171,17 +177,19 @@ def ensure_fn_sa():
 def fn_zip():
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-        for f in ("index.py", "logic.py", "store.py", "requirements.txt"):
+        for f in ("index.py", "admin.py", "logic.py", "store.py", "requirements.txt"):
             z.write(os.path.join(HERE, "function", f), f)
+        z.write(os.path.join(HERE, "schema.yql"), "schema.yql")
     return base64.b64encode(buf.getvalue()).decode()
 
 
-def ensure_fn():
-    fn = find(FN_API + "/functions", "functions", FN_NAME)
+def ensure_fn(name, desc, public):
+    fn = find(FN_API + "/functions", "functions", name)
     if not fn:
-        print("создаю функцию", FN_NAME)
-        fn = wait_op(call("POST", FN_API + "/functions",
-                          {"folderId": FOLDER_ID, "name": FN_NAME, "description": "бэкенд афиши"}))
+        print("создаю функцию", name)
+        fn = wait_op(call("POST", FN_API + "/functions", {"folderId": FOLDER_ID, "name": name, "description": desc}))
+    if not public:
+        return fn
     try:
         wait_op(call("POST", FN_API + "/functions/%s:updateAccessBindings" % fn["id"], {"accessBindingDeltas": [
             {"action": "ADD", "accessBinding": {"roleId": "functions.functionInvoker",
@@ -192,13 +200,13 @@ def ensure_fn():
     return fn
 
 
-def deploy_version(fn, sa, db):
+def deploy_version(fn, sa, db, entrypoint):
     host, path = db_conn(db)
-    print("выкладываю версию функции…")
+    print("выкладываю версию", fn["name"], "…")
     wait_op(call("POST", FN_API + "/versions", {
         "functionId": fn["id"],
         "runtime": "python312",
-        "entrypoint": "index.handler",
+        "entrypoint": entrypoint,
         "resources": {"memory": str(128 * 1024 * 1024)},
         "executionTimeout": "10s",
         "serviceAccountId": sa["id"],
@@ -231,43 +239,28 @@ def codes():
     return out
 
 
-def copy_data(db):
-    import ydb
-    pool = ydb_pool(db)
+def copy_data():
     ed, vw = codes()
     a, v = sb_load(ed), sb_load(vw)
     if not (a.get("ok") and a.get("role") == "editor" and v.get("ok") and v.get("role") == "viewer"):
         sys.exit("Supabase не принял коды или роли не те (editor/viewer)")
-    u = ydb.PrimitiveType.Utf8
-    s = ydb.PrimitiveType.String
+    b64 = lambda x: base64.b64encode(x).decode()
     for rid, code, j in (("editor", ed, a), ("viewer", vw, v)):
         salt = os.urandom(16)
-        pool.execute_with_retries(
-            "DECLARE $id AS Utf8; DECLARE $salt AS String; DECLARE $hash AS String; DECLARE $role AS Utf8; DECLARE $label AS Utf8;"
-            "UPSERT INTO access (id, salt, hash, role, label) VALUES ($id, $salt, $hash, $role, $label);",
-            {"$id": (rid, u), "$salt": (salt, s), "$hash": (logic.hash_code(code, salt), s),
-             "$role": (j["role"], u), "$label": (j["label"], u)})
+        admin({"op": "put_access", "id": rid, "salt": b64(salt), "hash": b64(logic.hash_code(code, salt)),
+               "role": j["role"], "label": j["label"]})
     for sid, data, at, by in (("akusha", a["data"], a["updated_at"], a["updated_by"]),
                               ("events", a["afisha"], a["afisha_updated_at"], None)):
-        put_state(pool, sid, data, at, by)
+        admin({"op": "put_state", "id": sid, "data": data, "updated_at": at, "updated_by": by})
     print("скопировано: коды (хешем), akusha %d Б, events %d Б" % (
         len(json.dumps(a["data"], ensure_ascii=False).encode()), len(json.dumps(a["afisha"], ensure_ascii=False).encode())))
 
 
-def put_state(pool, sid, data, at, by):
-    import ydb
-    from store import Q_PUT, dump
-    u = ydb.PrimitiveType.Utf8
-    q = Q_PUT.replace("DECLARE $by AS Utf8;", "DECLARE $by AS Utf8?;")
-    pool.execute_with_retries(q, {"$id": (sid, u), "$data": (dump(data), u), "$at": (at, u),
-                                  "$by": (by, ydb.OptionalType(u))})
-
-
-def set_events(db, path):
+def set_events(path):
     af = json.load(open(path, encoding="utf-8"))
     if not isinstance(af.get("events"), list) or not af["events"]:
         sys.exit("в файле нет списка events")
-    put_state(ydb_pool(db), "events", af, logic.now_iso(), None)
+    admin({"op": "put_state", "id": "events", "data": af, "updated_at": logic.now_iso(), "updated_by": None})
     print("афиша заменена: %d мероприятий, версия сайта %s" % (len(af["events"]), (af.get("site") or {}).get("version")))
 
 
@@ -328,20 +321,19 @@ def main():
         iam_token()
         call("GET", RM + "/folders/" + FOLDER_ID)
         print("ключ работает, каталог afisha виден")
-        return
-    if cmd in ("setup", "deploy"):
+    elif cmd in ("setup", "deploy"):
         db = ensure_db()
+        sa = ensure_fn_sa()
+        deploy_version(ensure_fn(ADMIN_NAME, "служебная: схема и перенос данных, закрытая", False), sa, db, "admin.handler")
+        deploy_version(ensure_fn(FN_NAME, "бэкенд афиши", True), sa, db, "index.handler")
         if cmd == "setup":
-            ensure_tables(db)
-        deploy_version(ensure_fn(), ensure_fn_sa(), db)
-        return
-    db = find(YDB_API + "/databases", "databases", DB_NAME) or sys.exit("нет базы, сначала setup")
-    if cmd == "copy":
-        copy_data(db)
+            ensure_tables()
+    elif cmd == "copy":
+        copy_data()
     elif cmd == "verify":
         verify(find(FN_API + "/functions", "functions", FN_NAME) or sys.exit("нет функции, сначала setup"))
     elif cmd == "set-events":
-        set_events(db, sys.argv[2])
+        set_events(sys.argv[2])
     else:
         sys.exit(__doc__)
 
