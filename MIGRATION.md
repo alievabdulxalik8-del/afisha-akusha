@@ -1,12 +1,11 @@
 # Переезд бэкенда афиши: Supabase → Yandex Cloud
 
-Статус: **в облаке поднято, ждём одну ручную роль.** Созданы YDB `afisha-db`, СА `afisha-fn`, функции
-`afisha-api` (публичная, https://functions.yandexcloud.net/d4e8n3j9esf1uq386ik3) и `afisha-admin` (закрытая,
-служебная). Таблиц и данных ещё нет: `afisha-fn` не может войти в YDB — роль `editor` у `afisha-deploy`
-не позволяет выдавать роли. Сайт работает на Supabase, ничего не переключено.
+Статус: **в облаке всё поднято, таблицы созданы, ждём коды для переноса данных.** YDB `afisha-db`
+(таблицы `access`, `state`, `meta`), СА `afisha-fn` (ydb.editor выдан владельцем), функции `afisha-api`
+(публичная, https://functions.yandexcloud.net/d4e8n3j9esf1uq386ik3, отвечает) и `afisha-admin` (закрытая).
+Данных в YDB ещё нет. Сайт работает на Supabase, ничего не переключено.
 
-**Нужно вручную:** консоль → каталог `afisha` → Права доступа → Назначить роли → `afisha-fn` → `ydb.editor`.
-После этого: `python3 yc/deploy.py setup` (создаст таблицы), затем `copy` и `verify`.
+**Дальше:** коды в переменных среды `AFISHA_CODE_EDITOR`, `AFISHA_CODE_VIEWER` → `python3 yc/deploy.py copy` → `verify`.
 
 Почему две функции: прокси среды Claude пропускает только HTTPS на 443, а YDB — это gRPC на 2135.
 Поэтому таблицы и перенос данных делает закрытая `afisha-admin` изнутри облака; вызвать её можно только

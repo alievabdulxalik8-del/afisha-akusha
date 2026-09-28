@@ -158,6 +158,10 @@ def ensure_fn_sa():
         print("создаю сервисный аккаунт", FN_SA_NAME)
         sa = wait_op(call("POST", IAM + "/serviceAccounts",
                           {"folderId": FOLDER_ID, "name": FN_SA_NAME, "description": "функция афиши: только ydb.editor"}))
+    have = call("GET", RM + "/folders/%s:listAccessBindings" % FOLDER_ID).get("accessBindings", [])
+    if any(x["roleId"] == "ydb.editor" and x["subject"]["id"] == sa["id"] for x in have):
+        print("  роль ydb.editor у", FN_SA_NAME, "есть")
+        return sa
     try:
         wait_op(call("POST", RM + "/folders/%s:updateAccessBindings" % FOLDER_ID, {"accessBindingDeltas": [
             {"action": "ADD", "accessBinding": {"roleId": "ydb.editor",
@@ -167,8 +171,8 @@ def ensure_fn_sa():
         if "already" in str(e).lower():
             print("  роль ydb.editor у", FN_SA_NAME, "уже была")
         elif "403" in str(e) or "PERMISSION" in str(e).upper():
-            print("\n!! Роль editor не позволяет выдавать роли. Выдайте вручную: консоль → каталог afisha →\n"
-                  "   Права доступа → Назначить роли → сервисный аккаунт afisha-fn → ydb.editor.\n")
+            print("  роли ydb.editor у afisha-fn на каталоге нет, выдать её editor не может. Если она выдана\n"
+                  "  на облако — всё в порядке. Иначе: консоль → каталог afisha → Права доступа → afisha-fn → ydb.editor.")
         else:
             raise
     return sa

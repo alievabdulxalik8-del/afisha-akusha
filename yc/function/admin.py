@@ -16,8 +16,10 @@ def _schema(st):
     import ydb
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "schema.yql")
     done = []
-    for stmt in open(path, encoding="utf-8").read().split(";"):
-        body = "\n".join(l for l in stmt.splitlines() if not l.strip().startswith("--")).strip()
+    # сначала убрать комментарии: в них бывает «;»
+    text = "\n".join(l.split("--")[0].rstrip() for l in open(path, encoding="utf-8").read().splitlines())
+    for stmt in text.split(";"):
+        body = stmt.strip()
         if not body:
             continue
         name = body.split()[2]
