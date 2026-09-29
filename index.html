@@ -519,7 +519,7 @@ var START_SCHOOLS = [
  ["Шуктынская СОШ","Шукты"]
 ];
 
-var SITE_VERSION = "2026-09-29-1";
+var SITE_VERSION = "2026-09-29-2";
 var SB_URL = "https://hyjyfmgskcjijyyblvtg.supabase.co";
 var SB_KEY = "sb_publishable_IRpG1zauJd1OLm36YCB40w_gZr4emDL";
 /* Бэкенд в Yandex Cloud (см. MIGRATION.md). Пусто — старый путь через Supabase (там только чтение). */
@@ -532,13 +532,13 @@ var AFISHA_AT = null;
 function freshState(){
   return {
     schools: START_SCHOOLS.map(function(s,i){return {id:"s"+(i+1), name:s[0], village:s[1], group:"", students:"", cards:""};}),
-    seats:{}, plan:{}, history:[]
+    seats:{}, plan:{}, history:[], unknown:{}
   };
 }
 var S;
 try { var raw = localStorage.getItem(KEY); S = raw ? JSON.parse(raw) : freshState(); } catch(e){ S = freshState(); }
 if(!S || !S.schools){ S = freshState(); }
-S.seats=S.seats||{}; S.plan=S.plan||{}; S.history=S.history||[];
+S.seats=S.seats||{}; S.plan=S.plan||{}; S.history=S.history||[]; S.unknown=S.unknown||{};
 function saveLocal(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
 function save(){ saveLocal(); pushState(); }
 
@@ -567,6 +567,32 @@ function schoolById(id){ for(var i=0;i<S.schools.length;i++) if(S.schools[i].id=
 function dParts(d){ var p=d.split("-"); return {y:+p[0], m:+p[1]-1, d:+p[2]}; }
 function dLabel(e){ var p=dParts(e.date); return p.d+" "+MONTHS_G[p.m]; }
 function planned(evId){ return (S.plan[evId]||[]).reduce(function(a,r){return a+num(r.count);},0); }
+/* Покупки. bought у строки плана: "" — пока не известно, число — сколько купили.
+   unknown — купили, но школа пока не известна (одно число на мероприятие). */
+function hasBought(r){ return r.bought!==undefined && r.bought!==null && r.bought!==""; }
+function buyInfo(rows, unknown){
+  var known=0, tracked=num(unknown)>0;
+  rows.forEach(function(r){ if(hasBought(r)){ known+=num(r.bought); tracked=true; } });
+  var plan=rows.reduce(function(a,r){return a+num(r.count);},0);
+  return {tracked:tracked, plan:plan, known:known, unknown:num(unknown), total:known+num(unknown),
+          left:Math.max(0, plan-known-num(unknown))};
+}
+function evBuy(evId){ return buyInfo(S.plan[evId]||[], S.unknown[evId]); }
+function buyLine(b){
+  var t="Купили "+b.total+" из "+b.plan;
+  if(b.unknown) t+=" (школа не указана у "+b.unknown+")";
+  return t+(b.total>b.plan ? ", больше плана на "+(b.total-b.plan) : ", ещё не купили "+b.left);
+}
+/* Сколько съездило из школы по записи истории. Если в записи отмечены покупки —
+   считаем купленные; «не указано» — ноль (такие покупки сидят в h.unknown).
+   Старые записи без покупок считаются по плану, как раньше. */
+function hTracked(h){ return buyInfo(h.rows||[], h.unknown).tracked; }
+function wentRow(h, r){ return hTracked(h) ? (hasBought(r) ? num(r.bought) : 0) : num(r.count); }
+function wentTotal(h){
+  var n=(h.rows||[]).reduce(function(a,r){ return a+wentRow(h,r); },0);
+  return n+(hTracked(h) ? num(h.unknown) : 0);
+}
+function wasThere(h, r){ return hTracked(h) ? wentRow(h,r)>0 : true; }
 function plural(n,one,few,many){ var m=n%100; if(m>=11&&m<=14) return many; m=n%10; if(m===1) return one; if(m>=2&&m<=4) return few; return many; }
 function ruDate(iso){ var p=dParts(iso); return p.d+" "+MONTHS_G[p.m]+" "+p.y; }
 /* Проведённым считается только то, чья дата уже наступила. Запись,
@@ -578,14 +604,14 @@ function visits(schoolId){
   var n=0, last=null;
   held().forEach(function(h){
     var was=false;
-    h.rows.forEach(function(r){ if(r.schoolId===schoolId) was=true; });
+    h.rows.forEach(function(r){ if(r.schoolId===schoolId && wasThere(h,r)) was=true; });
     if(was){ n++; if(!last || h.date>last.date) last=h; }
   });
   return {n:n, last:last};
 }
 function taken(schoolId){
   var n=0;
-  held().forEach(function(h){ h.rows.forEach(function(r){ if(r.schoolId===schoolId) n+=num(r.count); }); });
+  held().forEach(function(h){ h.rows.forEach(function(r){ if(r.schoolId===schoolId) n+=wentRow(h,r); }); });
   return n;
 }
 function cardsOf(schoolId){
@@ -672,7 +698,7 @@ function renderList(){
     var p=dParts(e.date);
     if(p.m!==lastM){ lastM=p.m; box.appendChild(el("h2",{class:"month",text:MONTHS[p.m][0].toUpperCase()+MONTHS[p.m].slice(1)+" "+p.y})); }
     var v=VENUES[e.venue];
-    var seats=num(S.seats[e.id]), pl=planned(e.id);
+    var seats=num(S.seats[e.id]), pl=planned(e.id), bu=evBuy(e.id);
     var seatBlock=el("div",{class:"seatbar"});
     if(seats){
       seatBlock.appendChild(el("small",{text:"Мест: "+seats+", запланировано "+pl}));
@@ -680,6 +706,7 @@ function renderList(){
     } else {
       seatBlock.appendChild(el("small",{text:pl?("Мест: уточняется, запланировано "+pl):"Мест: уточняется"}));
     }
+    if(bu.tracked) seatBlock.appendChild(el("small",{text:"Купили "+bu.total+" из "+bu.plan}));
     var card=el("article",{class:"ev"},[
       el("div",{class:"date"},[el("b",{text:String(p.d)}), el("span",{text:e.wd+", "+e.time})]),
       el("div",{},[
@@ -785,6 +812,8 @@ function renderCapacity(){
     : (pl>seats
       ? el("p",{class:"warn",text:"Запланировано "+pl+" при "+seats+" местах: не хватает "+(pl-seats)+"."})
       : el("p",{class:"ok",text:"Запланировано "+pl+" из "+seats+" мест, свободно "+(seats-pl)+"."})));
+  var b=evBuy(curEv);
+  if(b.tracked) box.appendChild(el("p",{class:b.total>=b.plan?"ok":"hint",text:buyLine(b)+"."}));
 }
 
 function groupOf(s){ return (s.group||"").trim(); }
@@ -851,7 +880,7 @@ function schoolPicker(excludeIds, onPick){
   }
   return box;
 }
-function rowsTable(rows, onCount, onRemove){
+function rowsTable(rows, onCount, onRemove, onBought){
   var tb=el("tbody");
   rows.forEach(function(r){
     var s=schoolById(r.schoolId); if(!s) return;
@@ -859,18 +888,20 @@ function rowsTable(rows, onCount, onRemove){
     function setWarn(){ wcell.textContent = (s.cards!=="" && num(r.count)>num(s.cards)) ? "больше, чем карт у школы ("+s.cards+")" : ""; }
     var c=el("input",{class:"inp num",type:"number",min:"0",value:r.count||"","aria-label":"Сколько учеников"});
     c.addEventListener("change",function(){ r.count=this.value; setWarn(); onCount(); });
+    var b=el("input",{class:"inp num",type:"number",min:"0",value:hasBought(r)?r.bought:"",placeholder:"?","aria-label":"Сколько купили билеты"});
+    b.addEventListener("change",function(){ r.bought=this.value.trim(); onBought(); });
     setWarn();
     var note=visitNote(s.id), ph=fmtPhone(s.phone);
     tb.appendChild(el("tr",{},[
       el("td",{},[el("span",{text:s.name}),
         note?el("small",{class:"snote",text:note}):null,
         ph?el("a",{class:"snote",href:"tel:"+ph.tel,text:"☎ "+ph.text}):null]),
-      el("td",{text:s.village||""}), el("td",{},[c]),
+      el("td",{text:s.village||""}), el("td",{},[c]), el("td",{},[b]),
       wcell,
       el("td",{},[el("button",{class:"x",text:"×","aria-label":"Убрать "+s.name,onclick:function(){ rows.splice(rows.indexOf(r),1); onRemove(); }})])
     ]));
   });
-  return el("div",{class:"tablewrap"},[el("table",{},[el("thead",{},[el("tr",{},[el("th",{text:"Школа"}),el("th",{text:"Село"}),el("th",{text:"Учеников"}),el("th",{text:""}),el("th",{text:""})])]),tb])]);
+  return el("div",{class:"tablewrap"},[el("table",{},[el("thead",{},[el("tr",{},[el("th",{text:"Школа"}),el("th",{text:"Село"}),el("th",{text:"Учеников"}),el("th",{text:"Купили"}),el("th",{text:""}),el("th",{text:""})])]),tb])]);
 }
 function renderPlan(){
   planSel.value=curEv;
@@ -879,9 +910,22 @@ function renderPlan(){
   var body=document.getElementById("planBody"); body.textContent="";
   var e=evById(curEv);
   if(!e.pk) body.appendChild(el("p",{class:"note",text:"У этого мероприятия сейчас нет отметки Пушкинской карты. Оплатить картой не получится, пока описание не пройдёт модерацию."}));
-  if(rows.length) body.appendChild(rowsTable(rows,
-    function(){ save(); renderCapacity(); renderSummary(); renderList(); buildReport(); },
-    function(){ save(); renderPlan(); renderList(); }));
+  var upd=function(){ save(); renderCapacity(); renderSummary(); renderList(); buildReport(); };
+  /* покупки сразу попадают и в уже сделанную запись истории */
+  var updBought=function(){ syncHistBought(curEv); upd(); renderHistory(); };
+  if(rows.length){
+    body.appendChild(rowsTable(rows, upd, function(){ save(); renderPlan(); renderList(); }, updBought));
+    var unk=el("input",{class:"inp num",type:"number",min:"0",id:"planUnknown",value:S.unknown[curEv]||"",
+      "aria-label":"Купили, школа пока неизвестна"});
+    unk.addEventListener("change",function(){
+      var v=this.value.trim(); if(v==="" || num(v)===0) delete S.unknown[curEv]; else S.unknown[curEv]=v;
+      updBought();
+    });
+    body.appendChild(el("div",{class:"row"},[
+      el("label",{for:"planUnknown",text:"Купили, школа пока неизвестна:"}), unk,
+      el("span",{class:"snote",text:"Когда выясните, чьи это билеты, впишите их в колонку «Купили» у школы и уменьшите это число."})
+    ]));
+  }
   else body.appendChild(el("p",{class:"hint",text:"Пока ни одна школа не добавлена."}));
   body.appendChild(schoolPicker(rows.map(function(r){return r.schoolId;}),function(ids){
     ids.forEach(function(id){
@@ -899,7 +943,7 @@ function renderPlan(){
   var doneBtn=el("button",{class:"btn",text:already?"Обновить запись в истории":"Мероприятие проведено — записать в историю",onclick:function(){
     if(String(e.date) > todayStr()){ alert("Мероприятие ещё не состоялось. Отметить его можно с "+ruDate(e.date)+"."); return; }
     if(!rows.length){ alert("Сначала добавьте хотя бы одну школу."); return; }
-    if(already && !confirm("Запись об этом мероприятии уже есть в истории. Заменить её текущим списком школ?")) return;
+    if(already && !confirm("Запись об этом мероприятии уже есть в истории. Заменить её текущим списком школ и покупок?")) return;
     saveToHistory(e, rows, already);
   }});
   if(early) doneBtn.disabled=true;
@@ -912,6 +956,15 @@ function renderPlan(){
 
   renderSummary(); buildReport(); applyReadOnly();
 }
+function syncHistBought(evId){
+  var bought={};
+  (S.plan[evId]||[]).forEach(function(r){ bought[r.schoolId]=hasBought(r) ? num(r.bought) : null; });
+  S.history.forEach(function(h){
+    if(h.eventId!==evId) return;
+    h.rows.forEach(function(r){ if(r.schoolId in bought) r.bought=bought[r.schoolId]; });
+    h.unknown=num(S.unknown[evId]);
+  });
+}
 function saveToHistory(e, rows, existing){
   var rec={
     id: existing?existing.id:newId(),
@@ -919,8 +972,10 @@ function saveToHistory(e, rows, existing){
     price:e.price, url:e.url, seats:num(S.seats[e.id]), savedAt:todayStr(),
     rows: rows.map(function(r){
       var s=schoolById(r.schoolId)||{};
-      return {schoolId:r.schoolId, name:s.name||"Школа удалена из списка", village:s.village||"", count:num(r.count)};
-    })
+      return {schoolId:r.schoolId, name:s.name||"Школа удалена из списка", village:s.village||"", count:num(r.count),
+              bought: hasBought(r) ? num(r.bought) : null};
+    }),
+    unknown: num(S.unknown[e.id])
   };
   if(existing) S.history=S.history.map(function(h){ return h.id===existing.id?rec:h; });
   else S.history.push(rec);
@@ -933,7 +988,8 @@ function renderHistKpis(){
   var k=document.getElementById("histKpis"); k.textContent="";
   var pupils=0, schools=[], h0=held();
   h0.forEach(function(h){
-    h.rows.forEach(function(r){ pupils+=num(r.count); if(schools.indexOf(r.schoolId)<0) schools.push(r.schoolId); });
+    pupils+=wentTotal(h);
+    h.rows.forEach(function(r){ if(wasThere(h,r) && schools.indexOf(r.schoolId)<0) schools.push(r.schoolId); });
   });
   [[h0.length,"мероприятий проведено"],[schools.length,"школ участвовало"],[pupils,"учеников съездило"]].forEach(function(x){
     k.appendChild(el("div",{class:"kpi"},[el("b",{text:String(x[0])}),el("span",{text:x[1]})]));
@@ -948,11 +1004,14 @@ function renderHistList(){
   }
   S.history.slice().sort(function(a,b){ return b.date.localeCompare(a.date); }).forEach(function(h){
     var total=h.rows.reduce(function(a,r){return a+num(r.count);},0);
-    var v=VENUES[h.venue]||{name:"",addr:""};
-    var det=el("details",{class:"more"},[el("summary",{text:"Какие школы были ("+h.rows.length+")"})]);
+    var v=VENUES[h.venue]||{name:"",addr:""}, tr=hTracked(h), hb=buyInfo(h.rows, h.unknown);
+    var det=el("details",{class:"more"},[el("summary",{text:(tr?"Школы и покупки (":"Какие школы были (")+h.rows.length+")"})]);
     h.rows.forEach(function(r){
-      det.appendChild(el("p",{class:"place",style:"margin:3px 0",text:"• "+schoolLabel(r)+" — "+num(r.count)+" уч."}));
+      det.appendChild(el("p",{class:"place",style:"margin:3px 0",text:"• "+schoolLabel(r)+" — "+
+        (tr ? (hasBought(r) ? "купили "+num(r.bought)+" из "+num(r.count) : "план "+num(r.count)+", покупка не отмечена")
+            : num(r.count)+" уч.")}));
     });
+    if(tr && hb.unknown) det.appendChild(el("p",{class:"place",style:"margin:3px 0",text:"• Школа не указана — купили "+hb.unknown}));
     box.appendChild(el("div",{class:"hist"},[
       el("div",{class:"row",style:"margin:0;justify-content:space-between;align-items:flex-start;flex-wrap:nowrap"},[
         el("div",{},[
@@ -965,7 +1024,7 @@ function renderHistList(){
           save(); renderHistory(); renderPlan();
         }})
       ]),
-      el("p",{class:"snote",text:"Школ: "+h.rows.length+" · учеников: "+total+" · записано "+ruDate(h.savedAt)}),
+      el("p",{class:"snote",text:"Школ: "+h.rows.length+" · "+(tr ? buyLine(hb).toLowerCase() : "учеников: "+total)+" · записано "+ruDate(h.savedAt)}),
       isHeld(h) ? null : el("p",{class:"snote warn",text:"Дата ещё не наступила: запись сделана заранее и в подсчёты войдёт "+
         ruDate(h.date)+". Если мероприятие не состоится — удалите запись крестиком."}),
       det,
@@ -1027,18 +1086,24 @@ function sheetFor(h){
     el("p",{class:"meta",text:v.name+(v.addr?", "+v.addr:"")}),
     el("p",{class:"meta",text:"Билет от "+h.price+" ₽"+(h.seats?" · мест в зале: "+h.seats:"")})
   ]);
-  var tb=el("tbody");
+  var tb=el("tbody"), tr=hTracked(h), hb=buyInfo(h.rows, h.unknown);
   h.rows.forEach(function(r,i){
     tb.appendChild(el("tr",{},[
       el("td",{text:String(i+1)}), el("td",{text:r.name}),
-      el("td",{text:r.village||"—"}), el("td",{class:"n",text:String(num(r.count))})
+      el("td",{text:r.village||"—"}), el("td",{class:"n",text:String(num(r.count))}),
+      tr ? el("td",{class:"n",text:hasBought(r)?String(num(r.bought)):"—"}) : null
     ]));
   });
+  if(tr && hb.unknown) tb.appendChild(el("tr",{},[
+    el("td",{text:""}), el("td",{text:"Школа не указана"}), el("td",{text:""}), el("td",{text:""}), el("td",{class:"n",text:String(hb.unknown)})
+  ]));
   tb.appendChild(el("tr",{class:"totals"},[
-    el("td",{text:""}), el("td",{text:"Итого"}), el("td",{text:""}), el("td",{class:"n",text:String(total)})
+    el("td",{text:""}), el("td",{text:"Итого"}), el("td",{text:""}), el("td",{class:"n",text:String(total)}),
+    tr ? el("td",{class:"n",text:String(hb.total)}) : null
   ]));
   sheet.appendChild(el("div",{class:"tablewrap"},[el("table",{},[
-    el("thead",{},[el("tr",{},[el("th",{text:"№"}),el("th",{text:"Школа"}),el("th",{text:"Село"}),el("th",{text:"Учеников"})])]),
+    el("thead",{},[el("tr",{},[el("th",{text:"№"}),el("th",{text:"Школа"}),el("th",{text:"Село"}),
+      el("th",{text:tr?"План":"Учеников"}), tr ? el("th",{text:"Купили"}) : null])]),
     tb
   ])]));
   var qbox=el("div",{});
@@ -1104,9 +1169,10 @@ function renderContacts(){
 /* ================= наблюдатель ================= */
 function wTotals(){
   var pupils=0, ids=[], st=0, cards=0, zero=0;
-  held().forEach(function(h){ (h.rows||[]).forEach(function(r){
-    pupils+=num(r.count); if(ids.indexOf(r.schoolId)<0) ids.push(r.schoolId);
-  }); });
+  held().forEach(function(h){
+    pupils+=wentTotal(h);
+    (h.rows||[]).forEach(function(r){ if(wasThere(h,r) && ids.indexOf(r.schoolId)<0) ids.push(r.schoolId); });
+  });
   S.schools.forEach(function(x){
     var a=num(x.students), c=num(x.cards);
     st+=a; cards+=c; if(a>0 && c===0) zero++;
@@ -1135,20 +1201,24 @@ function wKpis(){
   });
 }
 
-function wCard(title, meta, rows, seats){
-  var total=rows.reduce(function(a,r){ return a+num(r.count); },0);
+function wCard(title, meta, rows, seats, unknown){
+  var total=rows.reduce(function(a,r){ return a+num(r.count); },0), bi=buyInfo(rows, unknown);
   var card=el("div",{class:"wev"},[ el("h3",{text:title}), el("p",{class:"meta",text:meta}) ]);
   if(rows.length){
     var ul=el("ul");
     rows.slice().sort(function(a,b){ return num(b.count)-num(a.count); }).forEach(function(r){
       var sc=schoolById(r.schoolId)||{};
       var nm=r.name||sc.name||"Школа удалена", vl=r.village||sc.village||"";
-      ul.appendChild(el("li",{text:schoolLabel({name:nm,village:vl})+" — "+num(r.count)+" "+plural(num(r.count),"ученик","ученика","учеников")}));
+      ul.appendChild(el("li",{text:schoolLabel({name:nm,village:vl})+" — "+(bi.tracked
+        ? (hasBought(r) ? "купили "+num(r.bought)+" из "+num(r.count) : "план "+num(r.count)+", покупка не отмечена")
+        : num(r.count)+" "+plural(num(r.count),"ученик","ученика","учеников"))}));
     });
+    if(bi.tracked && bi.unknown) ul.appendChild(el("li",{text:"Школа не указана — купили "+bi.unknown}));
     card.appendChild(ul);
   } else card.appendChild(el("p",{class:"meta",text:"Школы пока не записаны."}));
   card.appendChild(el("p",{class:"tot",text:"Итого: "+total+" "+plural(total,"ученик","ученика","учеников")+
     (rows.length?" из "+rows.length+" "+plural(rows.length,"школы","школ","школ"):"")}));
+  if(bi.tracked) card.appendChild(el("p",{class:"snote",text:buyLine(bi)+"."}));
   if(seats){
     card.appendChild(progressBar(Math.round(total/seats*100), total>seats));
     card.appendChild(el("span",{class:"snote",text: total>seats
@@ -1167,7 +1237,7 @@ function wDone(){
   }
   h0.slice().sort(function(a,b){ return String(b.date).localeCompare(String(a.date)); }).forEach(function(h){
     var v=VENUES[h.venue]||{name:"",addr:""};
-    box.appendChild(wCard(h.title, ruDate(h.date)+", "+h.time+" — "+v.name, h.rows||[], num(h.seats)));
+    box.appendChild(wCard(h.title, ruDate(h.date)+", "+h.time+" — "+v.name, h.rows||[], num(h.seats), h.unknown));
   });
 }
 
@@ -1180,11 +1250,11 @@ function wNext(){
     any=true;
     var rows=(S.plan[e.id]||[]).map(function(r){
       var sc=schoolById(r.schoolId)||{};
-      return {schoolId:r.schoolId, name:sc.name, village:sc.village, count:r.count};
+      return {schoolId:r.schoolId, name:sc.name, village:sc.village, count:r.count, bought:r.bought};
     });
     var v=VENUES[e.venue]||{name:"",addr:""};
     var meta=ruDate(e.date)+", "+e.time+" — "+v.name+" · от "+e.price+" ₽ · "+(e.pk?"Пушкинская карта":"без Пушкинской карты");
-    var card=wCard(e.title, meta, rows, num(S.seats[e.id]));
+    var card=wCard(e.title, meta, rows, num(S.seats[e.id]), S.unknown[e.id]);
     if(e.date<today) card.appendChild(el("span",{class:"snote warn",text:"Дата прошла, а мероприятие не отмечено как проведённое."}));
     else if(!e.pk) card.appendChild(el("span",{class:"snote warn",text:"Оплатить Пушкинской картой нельзя: описание не прошло модерацию."}));
     box.appendChild(card);
@@ -1352,7 +1422,8 @@ document.getElementById("wPrint").addEventListener("click",function(){ showSheet
 function renderSummary(){
   var tb=document.getElementById("summaryRows"); tb.textContent="";
   EVENTS.forEach(function(e){
-    var rows=(S.plan[e.id]||[]); var names=rows.map(function(r){var s=schoolById(r.schoolId);return s?s.name+" ("+num(r.count)+")":"";}).filter(Boolean).join(", ");
+    var rows=(S.plan[e.id]||[]); var names=rows.map(function(r){var s=schoolById(r.schoolId);return s?s.name+" ("+num(r.count)+(hasBought(r)?", купили "+num(r.bought):"")+")":"";}).filter(Boolean).join(", ");
+    var bu=evBuy(e.id); if(bu.tracked) names+=(names?". ":"")+buyLine(bu);
     var seats=num(S.seats[e.id]), pl=planned(e.id);
     tb.appendChild(el("tr",{},[
       el("td",{text:dLabel(e)}), el("td",{text:e.title}),
@@ -1371,8 +1442,10 @@ function buildReport(){
     var seats=num(S.seats[e.id]);
     out.push(dLabel(e)+", "+e.time+" — "+e.title);
     out.push("Место: "+VENUES[e.venue].name+", "+VENUES[e.venue].addr+(seats?". Мест: "+seats:""));
-    rows.forEach(function(r){ var s=schoolById(r.schoolId); if(s) out.push("  • "+s.name+" — "+num(r.count)+" уч."); });
-    out.push("  Итого: "+planned(e.id)+" уч.");
+    rows.forEach(function(r){ var s=schoolById(r.schoolId); if(s) out.push("  • "+s.name+" — "+num(r.count)+" уч."+(hasBought(r)?", купили "+num(r.bought):"")); });
+    var bu=evBuy(e.id);
+    if(bu.tracked && bu.unknown) out.push("  • Школа не указана — купили "+bu.unknown);
+    out.push("  Итого: "+planned(e.id)+" уч."+(bu.tracked?" "+buyLine(bu)+".":""));
     out.push("Билеты: "+e.url); out.push("");
   });
   var evCount=0, totalPupils=0, usedSchools=[];
@@ -1423,9 +1496,10 @@ document.getElementById("csvBtn").addEventListener("click",function(){
 document.getElementById("printBtn").addEventListener("click",function(){ try{ window.print(); }catch(e){} });
 
 function csv(){
-  var rows=[["Дата","Время","Мероприятие","Площадка","Мест","Школа","Село","Учеников"]];
+  var rows=[["Дата","Время","Мероприятие","Площадка","Мест","Школа","Село","Учеников","Купили"]];
   EVENTS.forEach(function(e){
-    (S.plan[e.id]||[]).forEach(function(r){ var s=schoolById(r.schoolId); if(s) rows.push([e.date,e.time,e.title,VENUES[e.venue].name,S.seats[e.id]||"",s.name,s.village,num(r.count)]); });
+    (S.plan[e.id]||[]).forEach(function(r){ var s=schoolById(r.schoolId); if(s) rows.push([e.date,e.time,e.title,VENUES[e.venue].name,S.seats[e.id]||"",s.name,s.village,num(r.count),hasBought(r)?num(r.bought):""]); });
+    if(num(S.unknown[e.id])) rows.push([e.date,e.time,e.title,VENUES[e.venue].name,S.seats[e.id]||"","Школа не указана","","",num(S.unknown[e.id])]);
   });
   return "\uFEFF"+rows.map(function(r){return r.map(function(c){c=String(c);return /[;"\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c;}).join(";");}).join("\r\n");
 }
@@ -1454,7 +1528,7 @@ document.getElementById("restoreFile").addEventListener("change",function(){
     var was = "сейчас в базе: "+S.schools.length+" школ, "+S.history.length+" в истории";
     var now = "в файле: "+d.schools.length+" школ, "+((d.history||[]).length)+" в истории";
     if(!confirm("Восстановить данные из файла?\n\n"+now+"\n"+was+"\n\nТо, что сейчас в общей базе, будет заменено у всех.")) return;
-    S = {schools:d.schools, seats:d.seats||{}, plan:d.plan||{}, history:d.history||[]};
+    S = {schools:d.schools, seats:d.seats||{}, plan:d.plan||{}, history:d.history||[], unknown:d.unknown||{}};
     save();
     renderAll(); showTab(CURTAB);
     bmsg("Восстановлено: "+S.schools.length+" школ, "+S.history.length+" в истории.","ok");
@@ -1550,7 +1624,7 @@ function connMsg(kind, status){
 
 function applyServer(d){
   if(d && Object.prototype.toString.call(d.schools)==="[object Array]"){
-    S={schools:d.schools, seats:d.seats||{}, plan:d.plan||{}, history:d.history||[]};
+    S={schools:d.schools, seats:d.seats||{}, plan:d.plan||{}, history:d.history||[], unknown:d.unknown||{}};
     return true;
   }
   return false;
@@ -1602,7 +1676,7 @@ function pullState(done){
   });
 }
 
-function payload(){ return {schools:S.schools, seats:S.seats, plan:S.plan, history:S.history}; }
+function payload(){ return {schools:S.schools, seats:S.seats, plan:S.plan, history:S.history, unknown:S.unknown}; }
 
 function pushState(){
   if(ACCESS.role!=="editor") return;
