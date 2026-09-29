@@ -8,6 +8,8 @@ import base64
 import json
 import os
 
+import urllib.request
+
 import index
 from store import Q_PUT, dump
 
@@ -34,6 +36,18 @@ def _schema(st):
     return done
 
 
+SB_URL = "https://hyjyfmgskcjijyyblvtg.supabase.co/rest/v1/rpc/afisha_load"
+SB_KEY = "sb_publishable_IRpG1zauJd1OLm36YCB40w_gZr4emDL"  # публичный, тот же, что в index.html
+
+
+def sb_load(code):
+    """Ответ старого afisha_load из Supabase — для копии и сверки на время переезда."""
+    r = urllib.request.Request(SB_URL, data=json.dumps({"p_code": code}).encode(), method="POST", headers={
+        "apikey": SB_KEY, "Authorization": "Bearer " + SB_KEY, "Content-Type": "application/json"})
+    with urllib.request.urlopen(r, timeout=20) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
 def run(req):
     import ydb
     st = index.store()
@@ -41,6 +55,8 @@ def run(req):
     ou = ydb.OptionalType(u)
     s = ydb.PrimitiveType.String
     op = req.get("op")
+    if op == "sb_load":
+        return {"ok": True, "sb": sb_load(req["code"])}
     if op == "schema":
         return {"ok": True, "tables": _schema(st)}
     if op == "put_access":
