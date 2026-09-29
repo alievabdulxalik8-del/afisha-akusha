@@ -568,7 +568,7 @@ var START_SCHOOLS = [
  ["Шуктынская СОШ","Шукты"]
 ];
 
-var SITE_VERSION = "2026-09-29-7";
+var SITE_VERSION = "2026-09-29-8";
 var SB_URL = "https://hyjyfmgskcjijyyblvtg.supabase.co";
 var SB_KEY = "sb_publishable_IRpG1zauJd1OLm36YCB40w_gZr4emDL";
 /* Бэкенд в Yandex Cloud (см. MIGRATION.md). Пусто — старый путь через Supabase (там только чтение). */
@@ -1485,7 +1485,7 @@ function wKpis(){
   });
 }
 
-function wCard(title, meta, rows, seats, unknown){
+function wCard(title, meta, rows, seats, unknown, ka){
   var total=rows.reduce(function(a,r){ return a+num(r.count); },0), bi=buyInfo(rows, unknown);
   var card=el("div",{class:"wev"},[ el("h3",{text:title}), el("p",{class:"meta",text:meta}) ]);
   if(rows.length){
@@ -1502,7 +1502,8 @@ function wCard(title, meta, rows, seats, unknown){
   } else card.appendChild(el("p",{class:"meta",text:"Школы пока не записаны."}));
   card.appendChild(el("p",{class:"tot",text:"Итого: "+total+" "+plural(total,"ученик","ученика","учеников")+
     (rows.length?" из "+rows.length+" "+plural(rows.length,"школы","школ","школ"):"")}));
-  if(bi.tracked) card.appendChild(el("p",{class:"snote",text:buyLine(bi)+"."}));
+  if(bi.tracked && bi.plan) card.appendChild(el("p",{class:"snote",text:buyLine(bi)+"."}));
+  if(ka) card.appendChild(el("p",{class:"snote",text:"Касса kassir.ru: продано "+num(ka.sold)+", свободно "+num(ka.free)+"."}));
   if(seats){
     card.appendChild(progressBar(Math.round(total/seats*100), total>seats));
     card.appendChild(el("span",{class:"snote",text: total>seats
@@ -1521,7 +1522,7 @@ function wDone(){
   }
   h0.slice().sort(function(a,b){ return String(b.date).localeCompare(String(a.date)); }).forEach(function(h){
     var v=VENUES[h.venue]||{name:"",addr:""};
-    box.appendChild(wCard(h.title, ruDate(h.date)+", "+h.time+" — "+v.name, h.rows||[], num(h.seats), histUnknown(h)));
+    box.appendChild(wCard(h.title, ruDate(h.date)+", "+h.time+" — "+v.name, h.rows||[], num(h.seats), histUnknown(h), kassaAuto(h.eventId)));
   });
 }
 
@@ -1538,7 +1539,7 @@ function wNext(){
     });
     var v=VENUES[e.venue]||{name:"",addr:""};
     var meta=ruDate(e.date)+", "+e.time+" — "+v.name+" · от "+e.price+" ₽ · "+(e.pk?"Пушкинская карта":"без Пушкинской карты");
-    var card=wCard(e.title, meta, rows, num(S.seats[e.id]), evUnknown(e.id));
+    var card=wCard(e.title, meta, rows, num(S.seats[e.id]), evUnknown(e.id), kassaAuto(e.id));
     if(e.date<today) card.appendChild(el("span",{class:"snote warn",text:"Дата прошла, а мероприятие не отмечено как проведённое."}));
     else if(!e.pk) card.appendChild(el("span",{class:"snote warn",text:"Оплатить Пушкинской картой нельзя: описание не прошло модерацию."}));
     box.appendChild(card);
