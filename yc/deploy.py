@@ -34,6 +34,11 @@ DB_NAME = "afisha-db"
 FN_SA_NAME = "afisha-fn"
 FN_NAME = "afisha-api"
 ADMIN_NAME = "afisha-admin"
+KASSA_NAME = "afisha-kassa"
+KASSA_TIMER = "afisha-kassa-timer"
+# каждые 30 минут с 7:00 до 23:30 по Москве (время в cron — UTC)
+KASSA_CRON = "*/30 4-20 ? * * *"
+TRIGGERS = "https://serverless-triggers.api.cloud.yandex.net/triggers/v1"
 SB_URL = "https://hyjyfmgskcjijyyblvtg.supabase.co"
 SB_KEY = "sb_publishable_IRpG1zauJd1OLm36YCB40w_gZr4emDL"  # публичный, тот же, что в index.html
 SITE_ORIGIN = "https://alievabdulxalik8-del.github.io"
@@ -181,7 +186,7 @@ def ensure_fn_sa():
 def fn_zip():
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-        for f in ("index.py", "admin.py", "logic.py", "store.py", "requirements.txt"):
+        for f in ("index.py", "admin.py", "kassa.py", "logic.py", "store.py", "requirements.txt"):
             z.write(os.path.join(HERE, "function", f), f)
         z.write(os.path.join(HERE, "schema.yql"), "schema.yql")
     return base64.b64encode(buf.getvalue()).decode()
@@ -204,7 +209,7 @@ def ensure_fn(name, desc, public):
     return fn
 
 
-def deploy_version(fn, sa, db, entrypoint):
+def deploy_version(fn, sa, db, entrypoint, timeout="10s"):
     host, path = db_conn(db)
     print("выкладываю версию", fn["name"], "…")
     wait_op(call("POST", FN_API + "/versions", {
@@ -212,12 +217,39 @@ def deploy_version(fn, sa, db, entrypoint):
         "runtime": "python312",
         "entrypoint": entrypoint,
         "resources": {"memory": str(128 * 1024 * 1024)},
-        "executionTimeout": "10s",
+        "executionTimeout": timeout,
         "serviceAccountId": sa["id"],
         "content": fn_zip(),
         "environment": {"YDB_ENDPOINT": host, "YDB_DATABASE": path},
     }))
     print("готово:", fn_url(fn))
+
+
+def ensure_kassa(sa, db):
+    """Функция кассы и таймер. Логин и пароль кассы скрипт не трогает: владелец вписывает их
+    сам в консоли (функция afisha-kassa → новая версия → переменные KASSIR_LOGIN, KASSIR_PASSWORD).
+    Поэтому версию с кодом выкладываем, только пока функции ещё нет."""
+    fn = find(FN_API + "/functions", "functions", KASSA_NAME)
+    if not fn:
+        fn = ensure_fn(KASSA_NAME, "продажи из кабинета kassir.ru, по таймеру; закрытая", False)
+        deploy_version(fn, sa, db, "kassa.handler", "120s")
+    else:
+        print("  функция кассы уже есть — код не перевыкладываю, чтобы не стереть логин и пароль")
+    try:   # таймер вызывает функцию от имени afisha-fn
+        wait_op(call("POST", FN_API + "/functions/%s:updateAccessBindings" % fn["id"], {"accessBindingDeltas": [
+            {"action": "ADD", "accessBinding": {"roleId": "functions.functionInvoker",
+                                                "subject": {"id": sa["id"], "type": "serviceAccount"}}}]}))
+    except RuntimeError as e:
+        if "already" not in str(e).lower():
+            raise
+    if not find(TRIGGERS + "/triggers", "triggers", KASSA_TIMER):
+        print("создаю таймер", KASSA_TIMER, KASSA_CRON)
+        wait_op(call("POST", TRIGGERS + "/triggers", {
+            "folderId": FOLDER_ID, "name": KASSA_TIMER, "description": "продажи из кассы каждые 30 минут",
+            "rule": {"timer": {"cronExpression": KASSA_CRON, "invokeFunctionWithRetry": {
+                "functionId": fn["id"], "functionTag": "$latest", "serviceAccountId": sa["id"],
+                "retrySettings": {"retryAttempts": "1", "interval": "60s"}}}}}))
+    return fn
 
 
 def fn_url(fn):
@@ -328,12 +360,17 @@ def main():
         sa = ensure_fn_sa()
         deploy_version(ensure_fn(ADMIN_NAME, "служебная: схема и перенос данных, закрытая", False), sa, db, "admin.handler")
         deploy_version(ensure_fn(FN_NAME, "бэкенд афиши", True), sa, db, "index.handler")
+        ensure_kassa(sa, db)
         if cmd == "setup":
             ensure_tables()
     elif cmd == "copy":
         copy_data()
     elif cmd == "verify":
         verify(find(FN_API + "/functions", "functions", FN_NAME) or sys.exit("нет функции, сначала setup"))
+    elif cmd == "kassa-now":   # вызвать функцию кассы сейчас, не дожидаясь таймера
+        fn = find(FN_API + "/functions", "functions", KASSA_NAME) or sys.exit("нет функции кассы")
+        r = requests.post(fn_url(fn), data=b"{}", timeout=150, headers={"Authorization": "Bearer " + iam_token()})
+        print(r.status_code, r.text[:300])
     elif cmd == "set-events":
         set_events(sys.argv[2])
     else:

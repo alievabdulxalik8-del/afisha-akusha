@@ -54,7 +54,8 @@ class LogicTest(unittest.TestCase):
     def test_load_editor(self):
         st, r = req(self.s, op="load", code="org-code")
         self.assertEqual(st, 200)
-        self.assertEqual(set(r), {"ok", "role", "label", "data", "updated_at", "updated_by", "afisha", "afisha_updated_at"})
+        self.assertEqual(set(r), {"ok", "role", "label", "data", "updated_at", "updated_by", "afisha", "afisha_updated_at",
+                                  "kassa", "kassa_updated_at"})
         self.assertEqual((r["ok"], r["role"], r["label"]), (True, "editor", "Организатор"))
         self.assertEqual(r["data"], DATA)
         self.assertEqual(r["afisha"], AFISHA)
@@ -115,6 +116,33 @@ class LogicTest(unittest.TestCase):
         self.s.put_state("events", AFISHA, "2026-09-28T08:00:00.000000+00:00", None)
         _, p = req(self.s, op="load", code="kur-code", since=a["updated_at"], afisha_since=a["afisha_updated_at"])
         self.assertEqual(p["afisha_updated_at"], "2026-09-28T08:00:00.000000+00:00")
+
+    def test_kassa_in_load_and_poll(self):
+        _, a = req(self.s, op="load", code="kur-code")
+        self.assertIsNone(a["kassa"])
+        # старый сайт не шлёт kassa_since — касса на «без изменений» не влияет
+        self.s.put_state("kassa", {"events": [{"date": "2026-09-30", "sold": 29}]}, "2026-09-29T15:00:00.000000+00:00", "касса")
+        _, p = req(self.s, op="load", code="kur-code", since=a["updated_at"], afisha_since=a["afisha_updated_at"])
+        self.assertTrue(p.get("unchanged"))
+        # новый сайт шлёт — видит, что касса обновилась
+        _, p = req(self.s, op="load", code="kur-code", since=a["updated_at"], afisha_since=a["afisha_updated_at"], kassa_since=None)
+        self.assertNotIn("unchanged", p)
+        self.assertEqual(p["kassa"]["events"][0]["sold"], 29)
+        _, p = req(self.s, op="load", code="kur-code", since=a["updated_at"], afisha_since=a["afisha_updated_at"],
+                   kassa_since=p["kassa_updated_at"])
+        self.assertTrue(p.get("unchanged"))
+
+    def test_kassa_parse(self):
+        import kassa
+        page = ('<table><tr><td colspan="19">Событие (выбрать конкретное): Жизнь и быт горцев. Фольклорная программа / 2026-09-30 / 15:00 / Ставрополье / Активно / 6310289 / МБУК</td></tr>'
+                '<tr><td>300</td>' + '<td>1</td>' * 18 + '</tr>'
+                '<tr class="report-data-total"><td></td><td>100</td><td>30000</td><td>71</td><td>21300</td><td>0</td><td>0</td><td>0</td><td>0</td>'
+                '<td>29</td><td>8700</td><td>29</td><td>8700</td><td>0</td><td>0</td><td>29</td><td>8700</td><td>0</td><td>0</td></tr>'
+                '<tr class="report-data-total"><td></td>' + '<td>999</td>' * 18 + '</tr></table>')
+        ev = kassa.parse_sales(page)
+        self.assertEqual(len(ev), 1)
+        self.assertEqual((ev[0]["date"], ev[0]["time"], ev[0]["sold"], ev[0]["quota"], ev[0]["free"], ev[0]["id"]),
+                         ("2026-09-30", "15:00", 29, 100, 71, 6310289))
 
     def test_empty_base(self):
         s = MemStore([("org-code", "editor", "Организатор")])

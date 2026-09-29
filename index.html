@@ -568,7 +568,7 @@ var START_SCHOOLS = [
  ["Шуктынская СОШ","Шукты"]
 ];
 
-var SITE_VERSION = "2026-09-29-5";
+var SITE_VERSION = "2026-09-29-6";
 var SB_URL = "https://hyjyfmgskcjijyyblvtg.supabase.co";
 var SB_KEY = "sb_publishable_IRpG1zauJd1OLm36YCB40w_gZr4emDL";
 /* Бэкенд в Yandex Cloud (см. MIGRATION.md). Пусто — старый путь через Supabase (там только чтение). */
@@ -578,6 +578,8 @@ var CODE_KEY = "akusha-pk-code";
 var ACCESS = {code:null, role:null, label:null};
 var SYNC = {at:null, by:null, dirty:false, busy:false, err:null, conflict:null, timer:null};
 var AFISHA_AT = null;
+/* продажи из кабинета kassir.ru — их раз в полчаса записывает функция afisha-kassa */
+var KASSA = null, KASSA_AT = null;
 function freshState(){
   return {
     schools: START_SCHOOLS.map(function(s,i){return {id:"s"+(i+1), name:s[0], village:s[1], group:"", students:"", cards:""};}),
@@ -626,7 +628,31 @@ function buyInfo(rows, unknown){
   return {tracked:tracked, plan:plan, known:known, unknown:num(unknown), total:known+num(unknown),
           left:Math.max(0, plan-known-num(unknown))};
 }
-function evBuy(evId){ return buyInfo(S.plan[evId]||[], S.unknown[evId]); }
+/* строка кассы для мероприятия афиши: по дате и времени, при совпадении — по названию */
+function kassaAuto(evId){
+  var e=evById(evId); if(!e || !KASSA || !KASSA.events) return null;
+  var c=KASSA.events.filter(function(k){ return k.date===e.date && k.time===e.time; });
+  if(c.length>1){
+    var t=normRu(e.title).slice(0,12), byName=c.filter(function(k){ return normRu(k.name).indexOf(t)===0; });
+    if(byName.length) c=byName;
+  }
+  return c[0]||null;
+}
+/* итог по кассе: из кабинета кассы, иначе вписанный вручную, иначе null */
+function kassaOf(evId){
+  var a=kassaAuto(evId); if(a) return num(a.sold);
+  var k=S.kassa[evId]; return (k===undefined || k==="") ? null : num(k);
+}
+function knownBought(rows){ return (rows||[]).reduce(function(a,r){ return a+(hasBought(r)?num(r.bought):0); },0); }
+function evUnknown(evId){
+  var k=kassaOf(evId);
+  return k===null ? S.unknown[evId] : Math.max(0, k-knownBought(S.plan[evId]));
+}
+function histUnknown(h){
+  var k=kassaOf(h.eventId);
+  return k===null ? h.unknown : Math.max(0, k-knownBought(h.rows));
+}
+function evBuy(evId){ return buyInfo(S.plan[evId]||[], evUnknown(evId)); }
 function buyLine(b){
   var t="Купили "+b.total+" из "+b.plan;
   if(b.unknown) t+=" (школа не указана у "+b.unknown+")";
@@ -635,11 +661,11 @@ function buyLine(b){
 /* Сколько съездило из школы по записи истории. Если в записи отмечены покупки —
    считаем купленные; «не указано» — ноль (такие покупки сидят в h.unknown).
    Старые записи без покупок считаются по плану, как раньше. */
-function hTracked(h){ return buyInfo(h.rows||[], h.unknown).tracked; }
+function hTracked(h){ return buyInfo(h.rows||[], histUnknown(h)).tracked; }
 function wentRow(h, r){ return hTracked(h) ? (hasBought(r) ? num(r.bought) : 0) : num(r.count); }
 function wentTotal(h){
   var n=(h.rows||[]).reduce(function(a,r){ return a+wentRow(h,r); },0);
-  return n+(hTracked(h) ? num(h.unknown) : 0);
+  return n+(hTracked(h) ? num(histUnknown(h)) : 0);
 }
 function wasThere(h, r){ return hTracked(h) ? wentRow(h,r)>0 : true; }
 function plural(n,one,few,many){ var m=n%100; if(m>=11&&m<=14) return many; m=n%10; if(m===1) return one; if(m>=2&&m<=4) return few; return many; }
@@ -761,6 +787,8 @@ function renderList(){
       seatBlock.appendChild(el("small",{text:pl?("Мест: уточняется, запланировано "+pl):"Мест: уточняется"}));
     }
     if(bu.tracked) seatBlock.appendChild(el("small",{text:"Купили "+bu.total+" из "+bu.plan}));
+    var ka=kassaAuto(e.id);
+    if(ka && ACCESS.role) seatBlock.appendChild(el("small",{text:"Касса: продано "+num(ka.sold)+", свободно "+num(ka.free)}));
     var card=el("article",{class:"ev"},[
       el("div",{class:"date"},[el("b",{text:String(p.d)}), el("span",{text:e.wd+", "+e.time})]),
       el("div",{},[
@@ -973,10 +1001,10 @@ function renderPlan(){
   var updBought=function(){ syncHistBought(curEv); upd(); renderHistory(); renderPlanUnknown(); };
   if(rows.length){
     body.appendChild(rowsTable(rows, upd, function(){ save(); renderPlan(); renderList(); }, updBought));
-    var byKassa=(S.kassa[curEv]!==undefined && S.kassa[curEv]!=="");
-    var unk=el("input",{class:"inp num",type:"number",min:"0",id:"planUnknown",value:S.unknown[curEv]||"",
+    var byKassa=(kassaOf(curEv)!==null);
+    var unk=el("input",{class:"inp num",type:"number",min:"0",id:"planUnknown",value:evUnknown(curEv)||"",
       "aria-label":"Купили, школа пока неизвестна"});
-    if(byKassa){ unk.readOnly=true; unk.title="Считается само: по кассе "+S.kassa[curEv]+" минус вписанное у школ"; }
+    if(byKassa){ unk.readOnly=true; unk.title="Считается само: по кассе "+kassaOf(curEv)+" минус вписанное у школ"; }
     unk.addEventListener("change",function(){
       var v=this.value.trim(); if(v==="" || num(v)===0) delete S.unknown[curEv]; else S.unknown[curEv]=v;
       updBought();
@@ -1017,7 +1045,7 @@ function renderPlan(){
   renderSummary(); buildReport(); applyReadOnly();
 }
 function renderPlanUnknown(){
-  var u=document.getElementById("planUnknown"); if(u) u.value=S.unknown[curEv]||"";
+  var u=document.getElementById("planUnknown"); if(u) u.value=evUnknown(curEv)||"";
 }
 function recalcUnknown(evId){
   var k=S.kassa[evId];
@@ -1067,7 +1095,7 @@ function renderBuy(){
   var box=document.getElementById("buyIn"); if(!box || !BUY_EV) return;
   var e=evById(BUY_EV); if(!e){ closeBuy(); return; }
   var rows=S.plan[BUY_EV], b=evBuy(BUY_EV), ro=ACCESS.role!=="editor";
-  var kassaSet=(S.kassa[BUY_EV]!==undefined && S.kassa[BUY_EV]!=="");
+  var auto=kassaAuto(BUY_EV), kassaSet=(kassaOf(BUY_EV)!==null);
   box.textContent="";
 
   box.appendChild(el("div",{class:"buyhead"},[
@@ -1081,8 +1109,13 @@ function renderBuy(){
     ])
   ]));
 
-  /* 1. итог по кассе */
-  var kcard=el("div",{class:"bcard kassa"},[
+  /* 1. итог по кассе: из кабинета kassir.ru сам, иначе — вручную */
+  var kcard = auto ? el("div",{class:"bcard kassa"},[
+    el("div",{class:"nm",text:"Продано по кассе kassir.ru"}),
+    el("div",{class:"buytot",style:"margin-top:6px"},[el("b",{text:String(num(auto.sold))}),
+      el("span",{text:"в продаже "+num(auto.quota)+", свободно "+num(auto.free)+(num(auto.returned)?", возвратов "+num(auto.returned):"")})]),
+    el("div",{class:"sub",style:"margin-top:6px",text:"Обновляется само каждые 30 минут"+(KASSA_AT?", последний раз в "+hhmm(KASSA_AT):"")+". Вписывать не нужно."})
+  ]) : el("div",{class:"bcard kassa"},[
     el("div",{class:"nm",text:"Всего продано по кассе"}),
     el("div",{class:"sub",text:"Впишите итог из отчёта кассы — «школа не указана» посчитается сама."}),
     el("div",{class:"bline"},[
@@ -1093,7 +1126,7 @@ function renderBuy(){
       kassaSet ? el("button",{class:"btn small ghost",text:"Убрать",onclick:function(){ delete S.kassa[BUY_EV]; buyChanged(); }}) : null
     ])
   ]);
-  if(kassaSet && b.known>num(S.kassa[BUY_EV]))
+  if(kassaSet && b.known>kassaOf(BUY_EV))
     kcard.appendChild(el("p",{class:"snote warn",text:"По школам вписано "+b.known+" — больше, чем по кассе. Проверьте цифры."}));
   box.appendChild(kcard);
 
@@ -1118,7 +1151,7 @@ function renderBuy(){
   /* 4. школа не указана */
   var ucard=el("div",{class:"bcard"},[
     el("div",{class:"nm",text:"Школа не указана"}),
-    el("div",{class:"sub",text: kassaSet ? "Считается само: по кассе "+num(S.kassa[BUY_EV])+" минус вписанное у школ."
+    el("div",{class:"sub",text: kassaSet ? "Считается само: по кассе "+kassaOf(BUY_EV)+" минус вписанное у школ."
                                          : "Купили, но пока неизвестно, из какой школы."})
   ]);
   if(kassaSet) ucard.appendChild(el("div",{class:"buytot",style:"margin-top:8px"},[el("b",{text:String(b.unknown)})]));
@@ -1250,7 +1283,7 @@ function renderHistList(){
   }
   S.history.slice().sort(function(a,b){ return b.date.localeCompare(a.date); }).forEach(function(h){
     var total=h.rows.reduce(function(a,r){return a+num(r.count);},0);
-    var v=VENUES[h.venue]||{name:"",addr:""}, tr=hTracked(h), hb=buyInfo(h.rows, h.unknown);
+    var v=VENUES[h.venue]||{name:"",addr:""}, tr=hTracked(h), hb=buyInfo(h.rows, histUnknown(h));
     var det=el("details",{class:"more"},[el("summary",{text:(tr?"Школы и покупки (":"Какие школы были (")+h.rows.length+")"})]);
     h.rows.forEach(function(r){
       det.appendChild(el("p",{class:"place",style:"margin:3px 0",text:"• "+schoolLabel(r)+" — "+
@@ -1332,7 +1365,7 @@ function sheetFor(h){
     el("p",{class:"meta",text:v.name+(v.addr?", "+v.addr:"")}),
     el("p",{class:"meta",text:"Билет от "+h.price+" ₽"+(h.seats?" · мест в зале: "+h.seats:"")})
   ]);
-  var tb=el("tbody"), tr=hTracked(h), hb=buyInfo(h.rows, h.unknown);
+  var tb=el("tbody"), tr=hTracked(h), hb=buyInfo(h.rows, histUnknown(h));
   h.rows.forEach(function(r,i){
     tb.appendChild(el("tr",{},[
       el("td",{text:String(i+1)}), el("td",{text:r.name}),
@@ -1483,7 +1516,7 @@ function wDone(){
   }
   h0.slice().sort(function(a,b){ return String(b.date).localeCompare(String(a.date)); }).forEach(function(h){
     var v=VENUES[h.venue]||{name:"",addr:""};
-    box.appendChild(wCard(h.title, ruDate(h.date)+", "+h.time+" — "+v.name, h.rows||[], num(h.seats), h.unknown));
+    box.appendChild(wCard(h.title, ruDate(h.date)+", "+h.time+" — "+v.name, h.rows||[], num(h.seats), histUnknown(h)));
   });
 }
 
@@ -1500,7 +1533,7 @@ function wNext(){
     });
     var v=VENUES[e.venue]||{name:"",addr:""};
     var meta=ruDate(e.date)+", "+e.time+" — "+v.name+" · от "+e.price+" ₽ · "+(e.pk?"Пушкинская карта":"без Пушкинской карты");
-    var card=wCard(e.title, meta, rows, num(S.seats[e.id]), S.unknown[e.id]);
+    var card=wCard(e.title, meta, rows, num(S.seats[e.id]), evUnknown(e.id));
     if(e.date<today) card.appendChild(el("span",{class:"snote warn",text:"Дата прошла, а мероприятие не отмечено как проведённое."}));
     else if(!e.pk) card.appendChild(el("span",{class:"snote warn",text:"Оплатить Пушкинской картой нельзя: описание не прошло модерацию."}));
     box.appendChild(card);
@@ -1745,7 +1778,7 @@ function csv(){
   var rows=[["Дата","Время","Мероприятие","Площадка","Мест","Школа","Село","Учеников","Купили"]];
   EVENTS.forEach(function(e){
     (S.plan[e.id]||[]).forEach(function(r){ var s=schoolById(r.schoolId); if(s) rows.push([e.date,e.time,e.title,VENUES[e.venue].name,S.seats[e.id]||"",s.name,s.village,num(r.count),hasBought(r)?num(r.bought):""]); });
-    if(num(S.unknown[e.id])) rows.push([e.date,e.time,e.title,VENUES[e.venue].name,S.seats[e.id]||"","Школа не указана","","",num(S.unknown[e.id])]);
+    if(num(evUnknown(e.id))) rows.push([e.date,e.time,e.title,VENUES[e.venue].name,S.seats[e.id]||"","Школа не указана","","",num(evUnknown(e.id))]);
   });
   return "\uFEFF"+rows.map(function(r){return r.map(function(c){c=String(c);return /[;"\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c;}).join(";");}).join("\r\n");
 }
@@ -1833,7 +1866,7 @@ function api(fn, body, done){
     /* text/plain — простой запрос, браузер не шлёт лишний OPTIONS */
     var q={op: fn==="afisha_save" ? "save" : "load", code: body.p_code};
     if(fn==="afisha_save"){ q.data=body.p_data; q.since=body.p_since; }
-    else if(body.since!==undefined){ q.since=body.since; q.afisha_since=body.afisha_since; }
+    else if(body.since!==undefined){ q.since=body.since; q.afisha_since=body.afisha_since; q.kassa_since=body.kassa_since; }
     url=YC_URL; opts={method:"POST", headers:{"Content-Type":"text/plain;charset=UTF-8"}, body:JSON.stringify(q)};
   } else {
     var b={}; for(var k in body){ if(k.indexOf("p_")===0) b[k]=body[k]; }
@@ -1916,6 +1949,7 @@ function pullState(done){
     ACCESS.role=j.role; ACCESS.label=j.label;
     SYNC.at=j.updated_at; SYNC.by=j.updated_by;
     AFISHA_AT=j.afisha_updated_at||null;
+    KASSA=j.kassa||null; KASSA_AT=j.kassa_updated_at||null;
     applyAfisha(j.afisha);
     var had=applyServer(j.data);
     done(null, {empty:!had});
@@ -1953,15 +1987,17 @@ function refreshFromServer(){
   var a=document.activeElement;
   if(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return;
   /* since: новый бэкенд отвечает «без изменений», не пересылая данные */
-  api("afisha_load", {p_code:ACCESS.code, since:SYNC.at, afisha_since:AFISHA_AT}, function(err,res){
+  api("afisha_load", {p_code:ACCESS.code, since:SYNC.at, afisha_since:AFISHA_AT, kassa_since:KASSA_AT}, function(err,res){
     if(err) return;
     var j=res.body;
     if(!j || j.ok!==true || j.unchanged) return;
     var afNew = (j.afisha_updated_at && j.afisha_updated_at!==AFISHA_AT);
-    if(j.updated_at===SYNC.at && !afNew) return;
+    var kNew = (j.kassa_updated_at!==undefined && (j.kassa_updated_at||null)!==KASSA_AT);
+    if(j.updated_at===SYNC.at && !afNew && !kNew) return;
     SYNC.at=j.updated_at; SYNC.by=j.updated_by;
     if(afNew){ AFISHA_AT=j.afisha_updated_at; applyAfisha(j.afisha); }
-    if(applyServer(j.data) || afNew){ saveLocal(); renderAll(); showTab(CURTAB); }
+    if(kNew){ KASSA=j.kassa||null; KASSA_AT=j.kassa_updated_at||null; }
+    if(applyServer(j.data) || afNew || kNew){ saveLocal(); renderAll(); showTab(CURTAB); }
     setSync(afNew?"афиша обновлена":undefined);
   });
 }

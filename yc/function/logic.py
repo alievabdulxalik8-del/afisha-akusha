@@ -12,6 +12,8 @@ import time
 
 STATE_ID = "akusha"
 EVENTS_ID = "events"
+KASSA_ID = "kassa"   # продажи из кабинета kassir.ru, пишет функция afisha-kassa
+NOT_SENT = object()
 
 # scrypt: ~16 МБ памяти и десятки миллисекунд на проверку — дорого для перебора
 # украденных хешей. Живой экземпляр функции помнит уже проверенные коды,
@@ -64,7 +66,7 @@ def forget_codes():
     _known.clear()
 
 
-def op_load(store, code, since=None, afisha_since=None):
+def op_load(store, code, since=None, afisha_since=None, kassa_since=NOT_SENT):
     who = check_code(store, code)
     if not who:
         return {"ok": False, "error": "bad_code"}
@@ -72,11 +74,13 @@ def op_load(store, code, since=None, afisha_since=None):
     if since is not None or afisha_since is not None:
         # дешёвый опрос: сначала только отметки времени
         meta = store.meta()
-        if meta.get(STATE_ID) == since and meta.get(EVENTS_ID) == afisha_since:
+        same_kassa = kassa_since is NOT_SENT or meta.get(KASSA_ID) == kassa_since
+        if meta.get(STATE_ID) == since and meta.get(EVENTS_ID) == afisha_since and same_kassa:
             return {"ok": True, "unchanged": True, "role": role, "label": label,
                     "updated_at": since, "afisha_updated_at": afisha_since}
     st = store.state(STATE_ID) or {}
     af = store.state(EVENTS_ID) or {}
+    ka = store.state(KASSA_ID) or {}
     return {
         "ok": True,
         "role": role,
@@ -86,6 +90,8 @@ def op_load(store, code, since=None, afisha_since=None):
         "updated_by": st.get("updated_by"),
         "afisha": af.get("data") if af.get("data") is not None else {},
         "afisha_updated_at": af.get("updated_at"),
+        "kassa": ka.get("data"),
+        "kassa_updated_at": ka.get("updated_at"),
     }
 
 
@@ -128,7 +134,8 @@ def handle(store, body_text):
         return 400, {"ok": False, "error": "bad_request"}
     op = req.get("op")
     if op == "load":
-        return 200, op_load(store, req.get("code"), req.get("since"), req.get("afisha_since"))
+        return 200, op_load(store, req.get("code"), req.get("since"), req.get("afisha_since"),
+                            req["kassa_since"] if "kassa_since" in req else NOT_SENT)
     if op == "save":
         res = op_save(store, req.get("code"), req.get("data"), req.get("since"))
         return (400 if res.get("error") == "bad_request" else 200), res
