@@ -171,6 +171,32 @@ details.pickmulti[open]>summary{border-color:var(--accent)}
 #contactSearch{width:100%;margin-bottom:4px}
 .hist h4{margin:0 0 2px;font-size:17px}
 #printWrap{max-width:1040px;margin:0 auto;padding:0 18px 40px}
+/* Быстрый ввод покупок: отдельный экран поверх сайта, крупные кнопки под палец */
+#buyWrap{position:fixed;inset:0;z-index:50;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch}
+#buyWrap *{box-sizing:border-box}
+#buyWrap .in{max-width:640px;margin:0 auto;padding:12px 14px 60px}
+.buyhead{position:sticky;top:0;z-index:2;background:var(--bg);padding:8px 0 10px;border-bottom:1px solid var(--line);margin-bottom:12px}
+.buyhead h2{margin:0;font-size:18px;line-height:1.3}
+.buyhead .meta{color:var(--muted);font-size:14px;margin:2px 0 8px}
+.buytot{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.buytot b{font-size:30px;line-height:1}
+.buytot span{color:var(--muted)}
+.bcard{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:10px}
+.bcard.kassa{border-color:var(--accent)}
+.bcard .nm{font-weight:600}
+.bcard .sub{color:var(--muted);font-size:14px}
+.bline{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;flex-wrap:wrap}
+.step{display:flex;align-items:center;gap:6px}
+.step button{width:48px;height:48px;border-radius:12px;border:1px solid var(--line);background:var(--soft);color:var(--ink);font-size:24px;font-weight:700;cursor:pointer}
+.step button.plus{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.step input{width:72px;height:48px;text-align:center;font-size:22px;font-weight:700;border:1px solid var(--line);border-radius:12px;background:var(--paper);color:var(--ink)}
+.bcard.done{border-color:var(--ok)}
+.bcard .okmark{color:var(--ok);font-size:14px;font-weight:600}
+.bigbtn{display:block;width:100%;padding:14px;font-size:17px;text-align:center;border-radius:12px}
+.parsed{margin:8px 0 0;padding:0;list-style:none}
+.parsed li{padding:6px 0;border-bottom:1px solid var(--line);font-size:15px}
+.parsed li.bad{color:var(--warn)}
+.buybtn{margin-top:8px}
 .sheet{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:22px;margin-top:10px}
 .sheet h3{font-family:var(--display);font-weight:700;font-size:21px;line-height:1.3;margin:0 0 8px}
 .sheet .meta{color:var(--muted);margin:0 0 4px}
@@ -459,6 +485,7 @@ input.inp,textarea.inp,.search{-webkit-appearance:none;appearance:none}
   </div>
 </section>
 
+<div id="buyWrap" hidden role="dialog" aria-label="Отметить покупки билетов"><div class="in" id="buyIn"></div></div>
 </main>
 
 <div id="printWrap" hidden>
@@ -528,7 +555,7 @@ var START_SCHOOLS = [
  ["Шуктынская СОШ","Шукты"]
 ];
 
-var SITE_VERSION = "2026-09-29-3";
+var SITE_VERSION = "2026-09-29-4";
 var SB_URL = "https://hyjyfmgskcjijyyblvtg.supabase.co";
 var SB_KEY = "sb_publishable_IRpG1zauJd1OLm36YCB40w_gZr4emDL";
 /* Бэкенд в Yandex Cloud (см. MIGRATION.md). Пусто — старый путь через Supabase (там только чтение). */
@@ -541,13 +568,13 @@ var AFISHA_AT = null;
 function freshState(){
   return {
     schools: START_SCHOOLS.map(function(s,i){return {id:"s"+(i+1), name:s[0], village:s[1], group:"", students:"", cards:""};}),
-    seats:{}, plan:{}, history:[], unknown:{}
+    seats:{}, plan:{}, history:[], unknown:{}, kassa:{}
   };
 }
 var S;
 try { var raw = localStorage.getItem(KEY); S = raw ? JSON.parse(raw) : freshState(); } catch(e){ S = freshState(); }
 if(!S || !S.schools){ S = freshState(); }
-S.seats=S.seats||{}; S.plan=S.plan||{}; S.history=S.history||[]; S.unknown=S.unknown||{};
+S.seats=S.seats||{}; S.plan=S.plan||{}; S.history=S.history||[]; S.unknown=S.unknown||{}; S.kassa=S.kassa||{};
 function saveLocal(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
 function save(){ saveLocal(); pushState(); }
 
@@ -674,6 +701,11 @@ function renderNext(){
   box.appendChild(el("strong",{text:dLabel(nx)+", "+nx.time}));
   box.appendChild(el("span",{text:nx.title}));
   box.appendChild(el("small",{class:"where",text:VENUES[nx.venue].name}));
+  if(ACCESS.role==="editor" && (S.plan[nx.id]||[]).length){
+    var b=evBuy(nx.id);
+    box.appendChild(el("button",{class:"btn small buybtn",text:"Покупки: "+b.total+" из "+b.plan+" — отметить",
+      onclick:function(){ openBuy(nx.id); }}));
+  }
 }
 
 /* Afisha */
@@ -730,7 +762,9 @@ function renderList(){
       el("div",{class:"side"},[
         el("span",{class:"price",text:"от "+e.price+" ₽"}),
         seatBlock,
-        el("a",{class:"btn small",href:e.url,target:"_blank",rel:"noopener",text:"Страница билетов"})
+        el("a",{class:"btn small",href:e.url,target:"_blank",rel:"noopener",text:"Страница билетов"}),
+        (ACCESS.role==="editor" && (S.plan[e.id]||[]).length)
+          ? el("button",{class:"btn small ghost",text:"Отметить покупки",onclick:function(){ openBuy(e.id); }}) : null
       ])
     ]);
     box.appendChild(card);
@@ -919,13 +953,17 @@ function renderPlan(){
   var body=document.getElementById("planBody"); body.textContent="";
   var e=evById(curEv);
   if(!e.pk) body.appendChild(el("p",{class:"note",text:"У этого мероприятия сейчас нет отметки Пушкинской карты. Оплатить картой не получится, пока описание не пройдёт модерацию."}));
+  if(rows.length && ACCESS.role==="editor")
+    body.appendChild(el("button",{class:"btn bigbtn buybtn",text:"Отметить покупки — быстрый ввод",onclick:function(){ openBuy(curEv); }}));
   var upd=function(){ save(); renderCapacity(); renderSummary(); renderList(); buildReport(); };
   /* покупки сразу попадают и в уже сделанную запись истории */
-  var updBought=function(){ syncHistBought(curEv); upd(); renderHistory(); };
+  var updBought=function(){ syncHistBought(curEv); upd(); renderHistory(); renderPlanUnknown(); };
   if(rows.length){
     body.appendChild(rowsTable(rows, upd, function(){ save(); renderPlan(); renderList(); }, updBought));
+    var byKassa=(S.kassa[curEv]!==undefined && S.kassa[curEv]!=="");
     var unk=el("input",{class:"inp num",type:"number",min:"0",id:"planUnknown",value:S.unknown[curEv]||"",
       "aria-label":"Купили, школа пока неизвестна"});
+    if(byKassa){ unk.readOnly=true; unk.title="Считается само: по кассе "+S.kassa[curEv]+" минус вписанное у школ"; }
     unk.addEventListener("change",function(){
       var v=this.value.trim(); if(v==="" || num(v)===0) delete S.unknown[curEv]; else S.unknown[curEv]=v;
       updBought();
@@ -965,7 +1003,18 @@ function renderPlan(){
 
   renderSummary(); buildReport(); applyReadOnly();
 }
+function renderPlanUnknown(){
+  var u=document.getElementById("planUnknown"); if(u) u.value=S.unknown[curEv]||"";
+}
+function recalcUnknown(evId){
+  var k=S.kassa[evId];
+  if(k===undefined || k==="") return;
+  var known=0; (S.plan[evId]||[]).forEach(function(r){ if(hasBought(r)) known+=num(r.bought); });
+  var u=Math.max(0, num(k)-known);
+  if(u) S.unknown[evId]=String(u); else delete S.unknown[evId];
+}
 function syncHistBought(evId){
+  recalcUnknown(evId);
   var bought={};
   (S.plan[evId]||[]).forEach(function(r){ bought[r.schoolId]=hasBought(r) ? num(r.bought) : null; });
   S.history.forEach(function(h){
@@ -974,6 +1023,181 @@ function syncHistBought(evId){
     h.unknown=num(S.unknown[evId]);
   });
 }
+/* ---------- Быстрый ввод покупок ---------- */
+var BUY_EV=null;
+function openBuy(evId){
+  BUY_EV=evId; S.plan[evId]=S.plan[evId]||[];
+  renderBuy();
+  document.getElementById("buyWrap").hidden=false;
+  document.body.style.overflow="hidden";
+  document.getElementById("buyWrap").scrollTop=0;
+}
+function closeBuy(){
+  BUY_EV=null;
+  document.getElementById("buyWrap").hidden=true;
+  document.body.style.overflow="";
+  renderAll(); showTab(CURTAB);
+}
+function buyChanged(){
+  syncHistBought(BUY_EV); save(); renderBuy();
+}
+function stepper(value, onSet, label){
+  var inp=el("input",{type:"number",inputmode:"numeric",min:"0",value:value===""?"":String(value),placeholder:"—","aria-label":label});
+  inp.addEventListener("change",function(){ onSet(this.value.trim()==="" ? "" : String(Math.max(0,num(this.value)))); });
+  return el("div",{class:"step"},[
+    el("button",{type:"button",text:"−","aria-label":"Минус один: "+label,onclick:function(){ onSet(String(Math.max(0,num(value)-1))); }}),
+    inp,
+    el("button",{type:"button",class:"plus",text:"+","aria-label":"Плюс один: "+label,onclick:function(){ onSet(String(num(value)+1)); }})
+  ]);
+}
+function renderBuy(){
+  var box=document.getElementById("buyIn"); if(!box || !BUY_EV) return;
+  var e=evById(BUY_EV); if(!e){ closeBuy(); return; }
+  var rows=S.plan[BUY_EV], b=evBuy(BUY_EV), ro=ACCESS.role!=="editor";
+  var kassaSet=(S.kassa[BUY_EV]!==undefined && S.kassa[BUY_EV]!=="");
+  box.textContent="";
+
+  box.appendChild(el("div",{class:"buyhead"},[
+    el("div",{class:"row",style:"margin:0;justify-content:space-between;align-items:flex-start;flex-wrap:nowrap"},[
+      el("div",{},[ el("h2",{text:e.title}), el("p",{class:"meta",text:ruDate(e.date)+", "+e.time}) ]),
+      el("button",{class:"btn",text:"Готово",onclick:closeBuy})
+    ]),
+    el("div",{class:"buytot"},[
+      el("b",{text:b.total+" из "+b.plan}),
+      el("span",{text: b.total>b.plan ? "купили, больше плана на "+(b.total-b.plan) : "купили · ещё не купили "+b.left})
+    ])
+  ]));
+
+  /* 1. итог по кассе */
+  var kcard=el("div",{class:"bcard kassa"},[
+    el("div",{class:"nm",text:"Всего продано по кассе"}),
+    el("div",{class:"sub",text:"Впишите итог из отчёта кассы — «школа не указана» посчитается сама."}),
+    el("div",{class:"bline"},[
+      stepper(kassaSet?num(S.kassa[BUY_EV]):"", function(v){
+        if(v==="") delete S.kassa[BUY_EV]; else S.kassa[BUY_EV]=v;
+        buyChanged();
+      }, "всего по кассе"),
+      kassaSet ? el("button",{class:"btn small ghost",text:"Убрать",onclick:function(){ delete S.kassa[BUY_EV]; buyChanged(); }}) : null
+    ])
+  ]);
+  if(kassaSet && b.known>num(S.kassa[BUY_EV]))
+    kcard.appendChild(el("p",{class:"snote warn",text:"По школам вписано "+b.known+" — больше, чем по кассе. Проверьте цифры."}));
+  box.appendChild(kcard);
+
+  /* 2. из сообщения WhatsApp */
+  box.appendChild(pasteCard());
+
+  /* 3. по школам */
+  rows.forEach(function(r){
+    var s=schoolById(r.schoolId); if(!s) return;
+    var bo=hasBought(r)?num(r.bought):"", pl=num(r.count), full=(bo!=="" && bo>=pl && pl>0);
+    box.appendChild(el("div",{class:"bcard"+(full?" done":"")},[
+      el("div",{class:"nm",text:s.name}),
+      el("div",{class:"sub",text:(s.village?s.village+" · ":"")+"план "+pl+(bo===""?" · покупка не отмечена":"")}),
+      el("div",{class:"bline"},[
+        stepper(bo, function(v){ r.bought=v; buyChanged(); }, s.name),
+        full ? el("span",{class:"okmark",text:"✓ все купили"})
+             : el("button",{class:"btn small ghost",text:"= план ("+pl+")",onclick:function(){ r.bought=String(pl); buyChanged(); }})
+      ])
+    ]));
+  });
+
+  /* 4. школа не указана */
+  var ucard=el("div",{class:"bcard"},[
+    el("div",{class:"nm",text:"Школа не указана"}),
+    el("div",{class:"sub",text: kassaSet ? "Считается само: по кассе "+num(S.kassa[BUY_EV])+" минус вписанное у школ."
+                                         : "Купили, но пока неизвестно, из какой школы."})
+  ]);
+  if(kassaSet) ucard.appendChild(el("div",{class:"buytot",style:"margin-top:8px"},[el("b",{text:String(b.unknown)})]));
+  else ucard.appendChild(el("div",{class:"bline"},[stepper(b.unknown||"", function(v){
+    if(v==="" || num(v)===0) delete S.unknown[BUY_EV]; else S.unknown[BUY_EV]=v; buyChanged();
+  }, "школа не указана")]));
+  box.appendChild(ucard);
+
+  box.appendChild(el("button",{class:"btn bigbtn",text:"Готово",onclick:closeBuy}));
+  if(ro) [].forEach.call(box.querySelectorAll("input,textarea,.bcard button"),function(x){ x.disabled=true; });
+}
+
+/* Разбор сообщения: «Гапшима 11, Цуликани 1, всего по кассе 20» */
+function normRu(t){ return String(t||"").toLowerCase().replace(/ё/g,"е"); }
+function stemOf(w){ w=normRu(w).replace(/[^а-яa-z0-9]/g,""); return w.length<=4 ? w : w.slice(0, Math.max(4, Math.min(6, w.length-1))); }
+function schoolsInText(line){
+  var words=normRu(line).split(/[^а-яa-z0-9№]+/).filter(Boolean);
+  var inPlan={}; (S.plan[BUY_EV]||[]).forEach(function(r){ inPlan[r.schoolId]=1; });
+  var hits=S.schools.filter(function(s){
+    var keys=[stemOf(s.village), stemOf((s.name||"").split(/\s+/)[0])].filter(function(k){ return k.length>=4; });
+    return keys.some(function(k){ return words.some(function(w){ return w.indexOf(k)===0; }); });
+  });
+  if(hits.length>1){   /* одно село — несколько школ: смотрим номер «№2» и план */
+    var no=(normRu(line).match(/№\s*(\d+)/)||[])[1];
+    if(no){ var byNo=hits.filter(function(s){ return new RegExp("№\\s*"+no+"(\\D|$)").test(s.name); }); if(byNo.length) hits=byNo; }
+  }
+  if(hits.length>1){   /* тип школы: «лицей», «гимназия», «ООШ», «СОШ» */
+    var lt=normRu(line);
+    ["лице","гимназ","оош","сош"].forEach(function(t){
+      if(hits.length<2 || lt.indexOf(t)<0) return;
+      var byT=hits.filter(function(s){ return normRu(s.name).indexOf(t)>=0; }); if(byT.length) hits=byT;
+    });
+  }
+  if(hits.length>1){ var pl=hits.filter(function(s){ return inPlan[s.id]; }); if(pl.length) hits=pl; }
+  return hits;
+}
+function parseBuyText(text){
+  var out=[];
+  String(text||"").split(/[\n;,]+/).forEach(function(raw){
+    var line=raw.trim(); if(!line) return;
+    var clean=normRu(line).replace(/№\s*\d+/g," ").replace(/\d{1,2}[:.]\d{2}/g," ");
+    var nums=clean.match(/\d+/g);
+    if(!nums){ out.push({line:line, bad:"нет числа"}); return; }
+    var n=num(nums[nums.length-1]);
+    if(/касс|всего|итого|продан/.test(clean)){ out.push({line:line, kind:"kassa", n:n}); return; }
+    if(/неизвест|не знаем|не указан|без школ|\?/.test(clean)){ out.push({line:line, kind:"unknown", n:n}); return; }
+    var hits=schoolsInText(line);
+    if(!hits.length){ out.push({line:line, bad:"не нашёл школу"}); return; }
+    if(hits.length>1){ out.push({line:line, bad:"подходит несколько школ: "+hits.map(function(s){return s.name;}).join(", ")+" — уточните, какая (номер или «лицей»)"}); return; }
+    out.push({line:line, kind:"school", school:hits[0], n:n});
+  });
+  return out;
+}
+function pasteCard(){
+  var ta=el("textarea",{class:"inp",rows:"4",placeholder:"Например:\nГапшима 11\nЦуликани 1\nвсего по кассе 20","aria-label":"Текст сообщения"});
+  var res=el("div");
+  var card=el("details",{class:"bcard"},[
+    el("summary",{class:"nm",style:"cursor:pointer",text:"Вставить сообщение из WhatsApp"}),
+    el("p",{class:"sub",text:"Скопируйте сообщение с цифрами и вставьте сюда. Сайт найдёт школы по названию села и покажет, что понял, — сохранится только после «Применить»."}),
+    ta,
+    el("button",{class:"btn bigbtn",style:"margin-top:8px",text:"Разобрать",onclick:function(){
+      var items=parseBuyText(ta.value); res.textContent="";
+      if(!items.length){ res.appendChild(el("p",{class:"snote warn",text:"Вставьте текст сообщения."})); return; }
+      var ul=el("ul",{class:"parsed"}), good=items.filter(function(x){ return !x.bad; });
+      items.forEach(function(x){
+        var t = x.bad ? "✗ «"+x.line+"» — "+x.bad
+          : x.kind==="kassa" ? "✓ всего по кассе: "+x.n
+          : x.kind==="unknown" ? "✓ школа не указана: "+x.n
+          : "✓ "+x.school.name+(x.school.village?" ("+x.school.village+")":"")+": купили "+x.n
+            +(!(S.plan[BUY_EV]||[]).some(function(r){return r.schoolId===x.school.id;})?" — школы нет в плане, добавится":"");
+        ul.appendChild(el("li",{class:x.bad?"bad":"",text:t}));
+      });
+      res.appendChild(ul);
+      if(good.length) res.appendChild(el("button",{class:"btn bigbtn",style:"margin-top:8px",text:"Применить ("+good.length+")",onclick:function(){
+        var rows=S.plan[BUY_EV];
+        good.forEach(function(x){
+          if(x.kind==="kassa") S.kassa[BUY_EV]=String(x.n);
+          else if(x.kind==="unknown"){ if(x.n) S.unknown[BUY_EV]=String(x.n); else delete S.unknown[BUY_EV]; }
+          else {
+            var r=rows.filter(function(q){ return q.schoolId===x.school.id; })[0];
+            if(!r){ r={schoolId:x.school.id, count:String(x.n)}; rows.push(r); }
+            r.bought=String(x.n);
+          }
+        });
+        buyChanged();
+      }}));
+    }}),
+    res
+  ]);
+  return card;
+}
+
 function saveToHistory(e, rows, existing){
   var rec={
     id: existing?existing.id:newId(),
@@ -1537,7 +1761,7 @@ document.getElementById("restoreFile").addEventListener("change",function(){
     var was = "сейчас в базе: "+S.schools.length+" школ, "+S.history.length+" в истории";
     var now = "в файле: "+d.schools.length+" школ, "+((d.history||[]).length)+" в истории";
     if(!confirm("Восстановить данные из файла?\n\n"+now+"\n"+was+"\n\nТо, что сейчас в общей базе, будет заменено у всех.")) return;
-    S = {schools:d.schools, seats:d.seats||{}, plan:d.plan||{}, history:d.history||[], unknown:d.unknown||{}};
+    S = {schools:d.schools, seats:d.seats||{}, plan:d.plan||{}, history:d.history||[], unknown:d.unknown||{}, kassa:d.kassa||{}};
     save();
     renderAll(); showTab(CURTAB);
     bmsg("Восстановлено: "+S.schools.length+" школ, "+S.history.length+" в истории.","ok");
@@ -1575,7 +1799,7 @@ function labelTables(){
 var _mo=new MutationObserver(function(){ _mo.disconnect(); labelTables(); _mo.observe(document.querySelector("main"),{childList:true,subtree:true}); });
 _mo.observe(document.querySelector("main"),{childList:true,subtree:true});
 function renderAll(){
-  renderNext(); renderAfisha();
+  renderNext(); renderAfisha(); if(BUY_EV) renderBuy();
   if(ACCESS.role==="viewer"){ renderWatch(); return; }
   renderSchools(); renderContacts(); renderPlan(); renderHistory();
 }
@@ -1633,7 +1857,7 @@ function connMsg(kind, status){
 
 function applyServer(d){
   if(d && Object.prototype.toString.call(d.schools)==="[object Array]"){
-    S={schools:d.schools, seats:d.seats||{}, plan:d.plan||{}, history:d.history||[], unknown:d.unknown||{}};
+    S={schools:d.schools, seats:d.seats||{}, plan:d.plan||{}, history:d.history||[], unknown:d.unknown||{}, kassa:d.kassa||{}};
     return true;
   }
   return false;
@@ -1685,7 +1909,7 @@ function pullState(done){
   });
 }
 
-function payload(){ return {schools:S.schools, seats:S.seats, plan:S.plan, history:S.history, unknown:S.unknown}; }
+function payload(){ return {schools:S.schools, seats:S.seats, plan:S.plan, history:S.history, unknown:S.unknown, kassa:S.kassa}; }
 
 function pushState(){
   if(ACCESS.role!=="editor") return;
