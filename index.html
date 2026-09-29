@@ -568,7 +568,7 @@ var START_SCHOOLS = [
  ["Шуктынская СОШ","Шукты"]
 ];
 
-var SITE_VERSION = "2026-09-29-8";
+var SITE_VERSION = "2026-09-29-9";
 var SB_URL = "https://hyjyfmgskcjijyyblvtg.supabase.co";
 var SB_KEY = "sb_publishable_IRpG1zauJd1OLm36YCB40w_gZr4emDL";
 /* Бэкенд в Yandex Cloud (см. MIGRATION.md). Пусто — старый путь через Supabase (там только чтение). */
@@ -621,12 +621,16 @@ function planned(evId){ return (S.plan[evId]||[]).reduce(function(a,r){return a+
 /* Покупки. bought у строки плана: "" — пока не известно, число — сколько купили.
    unknown — купили, но школа пока не известна (одно число на мероприятие). */
 function hasBought(r){ return r.bought!==undefined && r.bought!==null && r.bought!==""; }
-function buyInfo(rows, unknown){
+/* kassa — итог по кассе (число или null). Если он есть, общий итог всегда он, а не сумма по школам:
+   общее количество даёт билетный оператор, по школам раскладывает организатор. */
+function buyInfo(rows, unknown, kassa){
   var known=0, tracked=num(unknown)>0;
   rows.forEach(function(r){ if(hasBought(r)){ known+=num(r.bought); tracked=true; } });
   var plan=rows.reduce(function(a,r){return a+num(r.count);},0);
-  return {tracked:tracked, plan:plan, known:known, unknown:num(unknown), total:known+num(unknown),
-          left:Math.max(0, plan-known-num(unknown))};
+  var hasK=(kassa!==null && kassa!==undefined), total=hasK ? num(kassa) : known+num(unknown);
+  if(hasK && total>0) tracked=true;
+  return {tracked:tracked, plan:plan, known:known, unknown:num(unknown), total:total,
+          kassa:hasK ? total : null, over:hasK && known>total, left:Math.max(0, plan-total)};
 }
 /* строка кассы для мероприятия афиши: по дате и времени, при совпадении — по названию */
 function kassaAuto(evId){
@@ -657,18 +661,21 @@ function histUnknown(h){
   var k=kassaOf(h.eventId);
   return k===null ? h.unknown : Math.max(0, k-knownBought(h.rows));
 }
-function evBuy(evId){ return buyInfo(S.plan[evId]||[], evUnknown(evId)); }
+function evBuy(evId){ return buyInfo(S.plan[evId]||[], evUnknown(evId), kassaOf(evId)); }
 function buyLine(b){
   var t="Купили "+b.total+" из "+b.plan;
-  if(b.unknown) t+=" (школа не указана у "+b.unknown+")";
+  if(b.over) t+=" (по школам вписано "+b.known+" — больше, чем продано по кассе, проверьте)";
+  else if(b.unknown) t+=" (школа не указана у "+b.unknown+")";
   return t+(b.total>b.plan ? ", больше плана на "+(b.total-b.plan) : ", ещё не купили "+b.left);
 }
 /* Сколько съездило из школы по записи истории. Если в записи отмечены покупки —
    считаем купленные; «не указано» — ноль (такие покупки сидят в h.unknown).
    Старые записи без покупок считаются по плану, как раньше. */
-function hTracked(h){ return buyInfo(h.rows||[], histUnknown(h)).tracked; }
+function histBuy(h){ return buyInfo(h.rows||[], histUnknown(h), kassaOf(h.eventId)); }
+function hTracked(h){ return histBuy(h).tracked; }
 function wentRow(h, r){ return hTracked(h) ? (hasBought(r) ? num(r.bought) : 0) : num(r.count); }
 function wentTotal(h){
+  var k=kassaOf(h.eventId); if(k!==null) return k;   /* общий итог — у оператора */
   var n=(h.rows||[]).reduce(function(a,r){ return a+wentRow(h,r); },0);
   return n+(hTracked(h) ? num(histUnknown(h)) : 0);
 }
@@ -1288,7 +1295,7 @@ function renderHistList(){
   }
   S.history.slice().sort(function(a,b){ return b.date.localeCompare(a.date); }).forEach(function(h){
     var total=h.rows.reduce(function(a,r){return a+num(r.count);},0);
-    var v=VENUES[h.venue]||{name:"",addr:""}, tr=hTracked(h), hb=buyInfo(h.rows, histUnknown(h));
+    var v=VENUES[h.venue]||{name:"",addr:""}, tr=hTracked(h), hb=histBuy(h);
     var det=el("details",{class:"more"},[el("summary",{text:(tr?"Школы и покупки (":"Какие школы были (")+h.rows.length+")"})]);
     h.rows.forEach(function(r){
       det.appendChild(el("p",{class:"place",style:"margin:3px 0",text:"• "+schoolLabel(r)+" — "+
@@ -1370,7 +1377,7 @@ function sheetFor(h){
     el("p",{class:"meta",text:v.name+(v.addr?", "+v.addr:"")}),
     el("p",{class:"meta",text:"Билет от "+h.price+" ₽"+(h.seats?" · мест в зале: "+h.seats:"")})
   ]);
-  var tb=el("tbody"), tr=hTracked(h), hb=buyInfo(h.rows, histUnknown(h));
+  var tb=el("tbody"), tr=hTracked(h), hb=histBuy(h);
   h.rows.forEach(function(r,i){
     tb.appendChild(el("tr",{},[
       el("td",{text:String(i+1)}), el("td",{text:r.name}),
@@ -1485,8 +1492,9 @@ function wKpis(){
   });
 }
 
-function wCard(title, meta, rows, seats, unknown, ka){
-  var total=rows.reduce(function(a,r){ return a+num(r.count); },0), bi=buyInfo(rows, unknown);
+function wCard(title, meta, rows, seats, unknown, evId){
+  var ka=kassaAuto(evId);
+  var total=rows.reduce(function(a,r){ return a+num(r.count); },0), bi=buyInfo(rows, unknown, kassaOf(evId));
   var card=el("div",{class:"wev"},[ el("h3",{text:title}), el("p",{class:"meta",text:meta}) ]);
   if(rows.length){
     var ul=el("ul");
@@ -1522,7 +1530,7 @@ function wDone(){
   }
   h0.slice().sort(function(a,b){ return String(b.date).localeCompare(String(a.date)); }).forEach(function(h){
     var v=VENUES[h.venue]||{name:"",addr:""};
-    box.appendChild(wCard(h.title, ruDate(h.date)+", "+h.time+" — "+v.name, h.rows||[], num(h.seats), histUnknown(h), kassaAuto(h.eventId)));
+    box.appendChild(wCard(h.title, ruDate(h.date)+", "+h.time+" — "+v.name, h.rows||[], num(h.seats), histUnknown(h), h.eventId));
   });
 }
 
@@ -1539,7 +1547,7 @@ function wNext(){
     });
     var v=VENUES[e.venue]||{name:"",addr:""};
     var meta=ruDate(e.date)+", "+e.time+" — "+v.name+" · от "+e.price+" ₽ · "+(e.pk?"Пушкинская карта":"без Пушкинской карты");
-    var card=wCard(e.title, meta, rows, num(S.seats[e.id]), evUnknown(e.id), kassaAuto(e.id));
+    var card=wCard(e.title, meta, rows, num(S.seats[e.id]), evUnknown(e.id), e.id);
     if(e.date<today) card.appendChild(el("span",{class:"snote warn",text:"Дата прошла, а мероприятие не отмечено как проведённое."}));
     else if(!e.pk) card.appendChild(el("span",{class:"snote warn",text:"Оплатить Пушкинской картой нельзя: описание не прошло модерацию."}));
     box.appendChild(card);
