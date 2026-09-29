@@ -381,9 +381,19 @@ main.wrap{padding-top:10px}
 .more2{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
 .more2 p{margin:0 0 10px;max-width:70ch}
 .more2 h4{margin:4px 0 6px;font-size:15px}
+.gohead{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;margin:6px 0 4px}
+.gohead b{font-size:16px} .gohead span{color:var(--muted);font-size:14px}
 .going{list-style:none;margin:0 0 8px;padding:0}
-.going li{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--line);font-size:15px}
-.going li b{white-space:nowrap}
+.going li{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--line)}
+.going li:last-child{border-bottom:0}
+.gsn{min-width:0} .gsn b{display:block;font-size:16px;font-weight:600}
+.gsn small{display:block;color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pill{flex:none;min-width:84px;text-align:center;border-radius:999px;padding:5px 12px;font-weight:700;font-size:15px;white-space:nowrap}
+.pill.full{background:#E3F2E8;color:var(--ok)}
+.pill.part{background:#E4ECF8;color:var(--accent)}
+.pill.none{background:var(--soft);color:var(--muted);font-weight:600;border:1px solid var(--line)}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .pill.full{background:#1C3A2A} :root:not([data-theme="light"]) .pill.part{background:#1E2F4A} }
+.gowarn{margin:4px 0 10px;background:#FDF3D7;border:1px solid #E9C766;color:#6B5310;border-radius:10px;padding:8px 12px;font-size:14px}
 footer.site{max-width:1040px;margin:0 auto;padding:22px 18px 40px;border-top:1px solid var(--line);color:var(--muted);font-size:14px}
 footer.site a{color:var(--accent);font-weight:600;text-decoration:none}
 footer.site .phone{display:inline-block;font-size:17px;margin:2px 0 6px}
@@ -969,15 +979,21 @@ function renderList(){
     var more=el("div",{class:"more2",hidden:""});
     more.appendChild(el("p",{text:e.desc}));
     if(ACCESS.role && going.length){
-      var bu=evBuy(e.id), ul=el("ul",{class:"going"});
-      going.forEach(function(r){
-        var sc=schoolById(r.schoolId);
-        ul.appendChild(el("li",{},[el("span",{text:schoolLabel(sc)}),
-          el("b",{text: num(r.count)+" уч."+(hasBought(r)?" · купили "+num(r.bought):"")})]));
+      var bu=evBuy(e.id), ul=el("ul",{class:"going"}), plan=0;
+      going.slice().sort(function(a,b){ return num(b.count)-num(a.count); }).forEach(function(r){
+        var sc=schoolById(r.schoolId), pl=num(r.count); plan+=pl;
+        var has=hasBought(r), bo=num(r.bought);
+        var cls = !has ? "none" : (bo>=pl ? "full" : "part");
+        ul.appendChild(el("li",{},[
+          el("div",{class:"gsn"},[el("b",{text:sc.village||sc.name}), el("small",{text:sc.name})]),
+          el("span",{class:"pill "+cls,title:"купили из плана",text:(cls==="full"?"✓ ":"")+(has?bo:"—")+" из "+pl})
+        ]));
       });
-      more.appendChild(el("h4",{text:"Едут школы"}));
+      more.appendChild(el("div",{class:"gohead"},[
+        el("b",{text:"Школы: "+going.length}), el("span",{text:"план "+plan+" "+plural(plan,"ученик","ученика","учеников")+" · справа — купили из плана"})]));
       more.appendChild(ul);
-      if(bu.tracked) more.appendChild(el("p",{class:"snote",text:buyLine(bu)+"."}));
+      if(bu.over) more.appendChild(el("p",{class:"gowarn",text:"По школам вписано "+bu.known+", а по кассе продано "+bu.total+". Проверьте цифры у школ."}));
+      else if(bu.unknown) more.appendChild(el("p",{class:"snote",text:"Ещё "+bu.unknown+" "+plural(bu.unknown,"билет","билета","билетов")+" продано, школа не указана."}));
     }
     if(ACCESS.role==="editor"){
       more.appendChild(el("div",{class:"row"},[
