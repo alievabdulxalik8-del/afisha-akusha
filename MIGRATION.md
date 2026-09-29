@@ -5,7 +5,7 @@
 данные там — копия на момент переключения, неделю держим как запасную.
 
 **Откат (если что-то не так):** вернуть в `index.html` `YC_URL = ""` и прежнюю `SITE_VERSION`; в Supabase
-вернуть прежнее тело `afisha_save` (проверка роли, `for update`, конфликт по `p_since`, `update … returning`).
+выполнить `yc/supabase_rollback.sql` (прежнее тело `afisha_save`).
 Правки, сделанные уже в Яндексе, перед этим забрать через `afisha-admin` (`get_state`).
 
 Функция `afisha-api`: https://functions.yandexcloud.net/d4e8n3j9esf1uq386ik3
