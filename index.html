@@ -302,32 +302,102 @@ input.inp,textarea.inp,.search{-webkit-appearance:none;appearance:none}
   body.print-doc .qrbox svg{border:0}
 }
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
+
+/* ===== Новый облик (2026-09-30): тёмно-синий и белый, один шрифт, больше воздуха ===== */
+:root{
+  --bg:#F1F3F6; --paper:#FFFFFF; --ink:#16202E; --muted:#5C6778; --line:#DCE1E8;
+  --accent:#1F3A64; --accent-ink:#FFFFFF; --apricot:#7FA6E0; --soft:#F6F8FB;
+  --ok:#2E7D4F; --warn:#B7791F; --bad:#C0392B;
+  --display:var(--body);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F1621; --paper:#172131; --ink:#E6ECF3; --muted:#9AA8BA; --line:#26344A;
+    --accent:#8FB3EB; --accent-ink:#0F1621; --apricot:#8FB3EB; --soft:#1C2839;
+    --ok:#5FBF86; --warn:#E3B04B; --bad:#EE7B6D;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F1621; --paper:#172131; --ink:#E6ECF3; --muted:#9AA8BA; --line:#26344A;
+  --accent:#8FB3EB; --accent-ink:#0F1621; --apricot:#8FB3EB; --soft:#1C2839;
+  --ok:#5FBF86; --warn:#E3B04B; --bad:#EE7B6D;
+}
+body{font-size:16px}
+h1,h2,h3{font-family:var(--body)}
+header.top{background:var(--bg);border:0}
+.hero{position:relative;min-height:150px;border-radius:0 0 22px 22px;overflow:hidden;color:#fff;
+  background:#1F3A64 linear-gradient(135deg,#1F3A64 0%,#2C5282 55%,#3B6BA5 100%) center/cover no-repeat}
+.hero::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,20,40,.10) 0%,rgba(10,20,40,.55) 100%)}
+.hero .in{position:relative;z-index:1;max-width:1040px;margin:0 auto;padding:28px 18px 26px}
+.hero h1{font-family:var(--body);font-weight:700;font-size:clamp(24px,5vw,36px);line-height:1.2;margin:0;max-width:24ch;color:#fff}
+.hero .sub{color:rgba(255,255,255,.85);margin:8px 0 0;max-width:56ch;font-size:15px}
+.stats{display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:12px;max-width:1040px;margin:-22px auto 0;padding:0 18px;position:relative;z-index:2}
+.stat{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:14px 16px;box-shadow:0 2px 10px rgba(16,32,56,.06);min-width:0}
+.stat .lbl{display:block;color:var(--muted);font-size:14px}
+.stat .big{display:block;font-size:34px;font-weight:700;line-height:1.15;margin-top:2px;color:var(--ink)}
+.stat .big.bigdate{font-size:24px}
+.stat .small{display:block;color:var(--muted);font-size:14px;margin-top:2px;overflow-wrap:anywhere}
+.statsnote{max-width:1040px;margin:8px auto 0;padding:0 18px;color:var(--muted);font-size:14px;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+.statsnote .stale{color:var(--ink);background:#FDF3D7;border:1px solid #E9C766;border-radius:8px;padding:2px 8px}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .statsnote .stale{background:#3A3118;border-color:#8A6D22} }
+.statsnote .btn{margin-left:auto}
+nav.tabs{max-width:1040px;margin:18px auto 0;padding:4px;display:grid;grid-template-columns:repeat(3,1fr);gap:4px;
+  background:var(--paper);border:1px solid var(--line);border-radius:14px}
+nav.tabs button{border:0;border-radius:10px;padding:12px 8px;font-size:16px;font-weight:600;color:var(--muted);text-align:center}
+nav.tabs button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink);border:0}
+.navwrap{padding:0 18px;position:sticky;top:0;z-index:20;background:var(--bg);padding-bottom:6px}
+.subnav{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 16px}
+.subnav button{border:1px solid var(--line);background:var(--paper);border-radius:999px;padding:8px 16px;font-weight:600;color:var(--muted);cursor:pointer;min-height:40px}
+.subnav button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:var(--soft)}
+main.wrap{padding-top:10px}
+.panel,.ev,.kpi{border-radius:16px}
+.panel{padding:20px}
+.btn{border-radius:12px;padding:10px 16px}
+.chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.bar i{background:var(--ok)} .bar i.over{background:var(--bad)}
+footer.site{max-width:1040px;margin:0 auto;padding:22px 18px 40px;border-top:1px solid var(--line);color:var(--muted);font-size:14px}
+footer.site a{color:var(--accent);font-weight:600;text-decoration:none}
+footer.site .phone{display:inline-block;font-size:17px;margin:2px 0 6px}
+@media (max-width:700px){
+  .hero .in{padding:20px 16px 30px}
+  .hero h1{font-size:25px}
+  .hero .sub{font-size:14px;margin-top:6px}
+  .stat{padding:12px 14px}
+  .stats{grid-template-columns:1fr 1fr;gap:10px;padding:0 16px}
+  .stat.next3{grid-column:1 / -1}
+  .stat .big{font-size:30px}
+  .statsnote{padding:0 16px}
+  .statsnote .btn{margin-left:0;width:100%;text-align:center}
+  .navwrap{padding:0 16px 6px}
+  nav.tabs{margin-top:14px}
+  nav.tabs button{padding:12px 4px;font-size:15px}
+  nav.tabs button:last-child:nth-child(odd){grid-column:auto}
+}
 </style>
 </head>
 <body>
-<header>
-  <div class="carpet" aria-hidden="true"></div>
-  <div class="wrap">
-    <div class="head">
-      <div>
-        <h1>Афиша по Пушкинской карте. Акушинский район</h1>
-        <p class="sub">Мероприятия домов культуры для планирования выездов школ: дата, время, места, цена и какие школы едут.</p>
-      </div>
-      <div class="next" id="nextBox"></div>
+<header class="top">
+  <!-- место под фото: картинка ставится фоном блока .hero -->
+  <div class="hero" id="heroPhoto">
+    <div class="in">
+      <h1>Афиша по Пушкинской карте. Акушинский район</h1>
+      <p class="sub">Мероприятия домов культуры, продажи билетов и выезды школ — в одном месте.</p>
     </div>
+  </div>
+  <div class="stats" id="stats"></div>
+  <div class="statsnote" id="statsNote"></div>
+  <div class="navwrap">
     <nav class="tabs" role="tablist">
-      <button role="tab" aria-selected="true" data-tab="afisha">Афиша</button>
+      <button role="tab" aria-selected="true" data-tab="afisha">Мероприятия</button>
       <button role="tab" aria-selected="false" data-tab="schools">Школы</button>
-      <button role="tab" aria-selected="false" data-tab="contacts">Контакты</button>
-      <button role="tab" aria-selected="false" data-tab="plan">План выездов</button>
-      <button role="tab" aria-selected="false" data-tab="history">История</button>
-      <button role="tab" aria-selected="false" data-tab="data">Отчёт</button>
+      <button role="tab" aria-selected="false" data-tab="data">Итоги</button>
     </nav>
   </div>
 </header>
 
 <main class="wrap">
 
+<div class="subnav" id="subnav"></div>
 <p id="updBar" class="sync bad" hidden></p>
 <p id="syncBar" class="sync" hidden></p>
 
@@ -512,8 +582,10 @@ input.inp,textarea.inp,.search{-webkit-appearance:none;appearance:none}
   <div id="printArea"></div>
 </div>
 
-<footer class="wrap">
-  Билеты продаются на kassir.ru, справки по телефону кассы +7 928 009-73-00. Места в залах и данные по школам заполняются вручную.
+<footer class="site">
+  <div>Касса, справки по билетам:</div>
+  <a class="phone" href="tel:+79280097300">+7 928 009-73-00</a>
+  <div>Билеты продаются на kassir.ru. Продажи обновляются сами из кабинета билетного оператора, школы и план заполняются вручную.</div>
   <span class="snote" id="verLine"></span>
 </footer>
 
@@ -568,7 +640,7 @@ var START_SCHOOLS = [
  ["Шуктынская СОШ","Шукты"]
 ];
 
-var SITE_VERSION = "2026-09-29-9";
+var SITE_VERSION = "2026-09-30-1";
 var SB_URL = "https://hyjyfmgskcjijyyblvtg.supabase.co";
 var SB_KEY = "sb_publishable_IRpG1zauJd1OLm36YCB40w_gZr4emDL";
 /* Бэкенд в Yandex Cloud (см. MIGRATION.md). Пусто — старый путь через Supabase (там только чтение). */
@@ -718,8 +790,28 @@ function todayStr(){ var t=new Date(); return t.getFullYear()+"-"+String(t.getMo
 var TABS=["afisha","schools","contacts","plan","history","data","watch"];
 var CURTAB="afisha";
 var tabs=document.querySelectorAll("nav.tabs button");
+/* 3 вкладки; внутри — переключатели на прежние разделы */
+var TAB_GROUPS={
+  afisha:[["afisha","Предстоящие"],["history","Прошедшие"],["plan","План выездов"]],
+  schools:[["schools","Список школ"],["contacts","Контакты"]],
+  data:[["data","Итоги и отчёты"]]
+};
+function tabGroup(name){
+  for(var g in TAB_GROUPS) if(TAB_GROUPS[g].some(function(x){ return x[0]===name; })) return g;
+  return "afisha";
+}
+function renderSubnav(name){
+  var box=document.getElementById("subnav"); if(!box) return;
+  var items=TAB_GROUPS[tabGroup(name)]; box.textContent="";
+  box.hidden = items.length<2 || ACCESS.role==="viewer";
+  items.forEach(function(x){
+    box.appendChild(el("button",{type:"button","aria-pressed":x[0]===name?"true":"false",text:x[1],
+      onclick:function(){ showTab(x[0]); }}));
+  });
+}
 function showTab(name){
   var nav=document.querySelector("nav.tabs");
+  renderSubnav(name==="watch"?"afisha":name);
   if(ACCESS.role==="viewer"){
     nav.hidden=true;
     CURTAB="watch";
@@ -731,7 +823,8 @@ function showTab(name){
   nav.hidden=false;
   if(name==="watch") name="afisha";
   CURTAB=name;
-  tabs.forEach(function(x){ x.setAttribute("aria-selected", x.dataset.tab===name?"true":"false"); });
+  var grp=tabGroup(name);
+  tabs.forEach(function(x){ x.setAttribute("aria-selected", x.dataset.tab===grp?"true":"false"); });
   var locked = (name!=="afisha" && !ACCESS.role);
   document.getElementById("gate").hidden = !locked;
   TABS.forEach(function(t){ document.getElementById("tab-"+t).hidden = locked || (t!==name); });
@@ -744,17 +837,47 @@ function showTab(name){
 tabs.forEach(function(b){ b.addEventListener("click", function(){ showTab(b.dataset.tab); }); });
 
 /* Next event box */
+function agoText(iso){
+  var t=Date.parse(iso); if(isNaN(t)) return "";
+  var m=Math.round((Date.now()-t)/60000);
+  if(m<1) return "только что";
+  if(m<60) return m+" "+plural(m,"минуту","минуты","минут")+" назад";
+  var h=Math.floor(m/60);
+  if(h<24) return h+" "+plural(h,"час","часа","часов")+" назад (в "+hhmm(iso)+")";
+  return ruDate(new Date(t).toISOString().slice(0,10))+" в "+hhmm(iso);
+}
+function stat(label, big, small, cls){
+  return el("div",{class:"stat"+(cls?" "+cls:"")},[
+    el("span",{class:"lbl",text:label}),
+    el("span",{class:"big"+(cls==="next3"?" bigdate":""),text:big}),
+    small?el("span",{class:"small",text:small}):null
+  ]);
+}
+/* Сверху три больших числа — по ближайшему мероприятию */
 function renderNext(){
   var t=todayStr(), nx=EVENTS.filter(function(e){return e.date>=t;})[0];
-  var box=document.getElementById("nextBox"); box.textContent="";
-  if(!nx){ box.appendChild(el("strong",{text:"Все мероприятия прошли"})); return; }
-  box.appendChild(el("small",{text:"Ближайшее"}));
-  box.appendChild(el("strong",{text:dLabel(nx)+", "+nx.time}));
-  box.appendChild(el("span",{text:nx.title}));
-  box.appendChild(el("small",{class:"where",text:VENUES[nx.venue].name}));
+  var box=document.getElementById("stats"), note=document.getElementById("statsNote");
+  box.textContent=""; note.textContent="";
+  if(!nx){ box.appendChild(stat("Ближайшее мероприятие","—","Все мероприятия из афиши прошли","next3")); return; }
+  var ka=kassaAuto(nx.id), k=kassaOf(nx.id), seats=num(S.seats[nx.id]);
+  var sold = k!==null ? String(k) : "—";
+  var free = ka ? String(num(ka.free)) : (k!==null && seats ? String(Math.max(0,seats-k)) : "—");
+  box.appendChild(stat("Билетов продано", sold, ka ? "из "+num(ka.quota)+" в продаже" : (seats?"мест в зале "+seats:"")));
+  box.appendChild(stat("Свободно", free, "мест на ближайшее"));
+  box.appendChild(stat("Ближайшее мероприятие", dLabel(nx)+", "+nx.time,
+    nx.title+" · "+((VENUES[nx.venue]||{}).name||""), "next3"));
+  if(KASSA_AT){
+    var old=(Date.now()-Date.parse(KASSA_AT))>3*3600*1000;
+    note.appendChild(el("span",{text:"Продажи с kassir.ru, обновлено "+agoText(KASSA_AT)}));
+    if(old) note.appendChild(el("span",{class:"stale",text:"Данные могут быть устаревшими"}));
+  } else if(!ACCESS.role){
+    note.appendChild(el("span",{text:"Продажи видны после входа по коду."}));
+  } else if(k!==null){
+    note.appendChild(el("span",{text:"Продажи вписаны вручную."}));
+  }
   if(ACCESS.role==="editor" && (S.plan[nx.id]||[]).length){
     var b=evBuy(nx.id);
-    box.appendChild(el("button",{class:"btn small buybtn",text:"Покупки: "+b.total+" из "+b.plan+" — отметить",
+    note.appendChild(el("button",{class:"btn small buybtn",text:"Отметить покупки по школам ("+b.total+" из "+b.plan+")",
       onclick:function(){ openBuy(nx.id); }}));
   }
 }
@@ -2159,6 +2282,7 @@ window.addEventListener("focus", refreshFromServer);
 
 /* ---------- запуск ---------- */
 document.getElementById("verLine").textContent="Версия сайта: "+SITE_VERSION;
+setInterval(renderNext, 60000);   /* «обновлено N минут назад» идёт само */
 renderNext(); renderAfisha(); labelTables();
 (function(){
   var stored=null;
