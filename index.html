@@ -415,12 +415,31 @@ main.wrap{padding-top:10px}
 .sccont{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
 .sccont summary{cursor:pointer;color:var(--accent);font-weight:600}
 .sccont p{margin:8px 0 0}
+/* итоги */
+.sech{font-size:18px;margin:18px 0 10px}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:6px}
+.tiles .stat .big{font-size:28px}
+.sumlist{padding:6px 18px}
+.sumrow{display:flex;justify-content:space-between;align-items:center;gap:10px 18px;padding:12px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.sumlist .sumrow:last-of-type{border-bottom:0}
+.sumrow.past{opacity:.65}
+.sumname{flex:1 1 260px;min-width:0} .sumname b{display:block;font-size:16px} .sumname small{display:block;color:var(--muted);font-size:13px}
+.sumnums{flex:1 1 280px;min-width:0} .sumnums .fill{margin:0}
+.sumsub{color:var(--muted);font-size:14px;margin-top:4px}
+.sch3{display:flex;gap:18px;flex:none;text-align:right}
+.sch3 span{display:block} .sch3 b{display:block;font-size:19px;line-height:1.1} .sch3 small{color:var(--muted);font-size:12px}
+details.svc{margin-top:8px}
+details.svc>summary{cursor:pointer;color:var(--muted);font-weight:600;padding:10px 0}
 footer.site{max-width:1040px;margin:0 auto;padding:22px 18px 40px;border-top:1px solid var(--line);color:var(--muted);font-size:14px}
 footer.site a{color:var(--accent);font-weight:600;text-decoration:none}
 footer.site .phone{display:inline-block;font-size:17px;margin:2px 0 6px}
 @media (max-width:700px){
   .ev2{grid-template-columns:68px 1fr;gap:0 12px;padding:14px}
   .sc{padding:14px}
+  .tiles{grid-template-columns:1fr 1fr;gap:10px}
+  .tiles .stat .big{font-size:22px;white-space:nowrap}
+  .sumlist{padding:4px 14px}
+  .sch3{width:100%;justify-content:flex-start;text-align:left;gap:22px}
   .scnums{gap:12px}
   .tripnum{width:100%}
   .seg{margin-left:auto}
@@ -612,8 +631,20 @@ footer.site .phone{display:inline-block;font-size:17px;margin:2px 0 6px}
 
 <!-- DATA -->
 <section id="tab-data" hidden>
+  <div id="sumBox"></div>
   <div class="panel">
-    <h2>Отчёт для рассылки</h2>
+    <h2>Скачать и распечатать</h2>
+    <div class="row">
+      <button class="btn" id="csvBtn2">Скачать для Excel</button>
+      <button class="btn ghost" id="sumPrint">Распечатать сводку</button>
+      <button class="btn ghost" id="copyReport2">Скопировать текст для WhatsApp</button>
+      <span id="reportMsg2" class="ok"></span>
+    </div>
+  </div>
+  <details class="svc">
+    <summary>Служебное: полный текст отчёта, резервная копия, сброс</summary>
+  <div class="panel">
+    <h2>Текст для WhatsApp и файлы</h2>
     <p class="hint">Отчёт собирается сам, как только вы заполняете план. Его можно скопировать в WhatsApp, скачать файлом или распечатать. Таблица CSV открывается в Excel.</p>
     <textarea class="inp" id="report" readonly style="min-height:220px"></textarea>
     <div class="row">
@@ -645,6 +676,7 @@ footer.site .phone{display:inline-block;font-size:17px;margin:2px 0 6px}
       <span id="resetMsg"></span>
     </div>
   </div>
+  </details>
 </section>
 
 <div id="buyWrap" hidden role="dialog" aria-label="Отметить покупки билетов"><div class="in" id="buyIn"></div></div>
@@ -719,7 +751,7 @@ var START_SCHOOLS = [
  ["Шуктынская СОШ","Шукты"]
 ];
 
-var SITE_VERSION = "2026-09-30-3";
+var SITE_VERSION = "2026-09-30-4";
 var SB_URL = "https://hyjyfmgskcjijyyblvtg.supabase.co";
 var SB_KEY = "sb_publishable_IRpG1zauJd1OLm36YCB40w_gZr4emDL";
 /* Бэкенд в Yandex Cloud (см. MIGRATION.md). Пусто — старый путь через Supabase (там только чтение). */
@@ -908,7 +940,7 @@ function showTab(name){
   document.getElementById("gate").hidden = !locked;
   TABS.forEach(function(t){ document.getElementById("tab-"+t).hidden = locked || (t!==name); });
   if(locked){ var ci=document.getElementById("codeInput"); if(ci) ci.focus(); return; }
-  if(name==="data") buildReport();
+  if(name==="data"){ buildReport(); renderTotals(); }
   if(name==="plan") renderPlan();
   if(name==="history") renderHistory();
   if(name==="contacts") renderContacts();
@@ -2108,11 +2140,87 @@ document.getElementById("csvBtn").addEventListener("click",function(){
 });
 document.getElementById("printBtn").addEventListener("click",function(){ try{ window.print(); }catch(e){} });
 
-function csv(){
-  var rows=[["Дата","Время","Мероприятие","Площадка","Мест","Школа","Село","Учеников","Купили"]];
+/* ---------- «Итоги» ---------- */
+function tile(big, label, sub){
+  return el("div",{class:"stat"},[el("span",{class:"lbl",text:label}), el("span",{class:"big",text:String(big)}),
+    sub?el("span",{class:"small",text:sub}):null]);
+}
+function renderTotals(){
+  var box=document.getElementById("sumBox"); if(!box) return;
+  box.textContent="";
+  var today=todayStr(), up=EVENTS.filter(function(e){ return String(e.date)>=today; });
+  var sold=0, quota=0, soldUp=0, planUp=0, goIds={}, planIds={};
   EVENTS.forEach(function(e){
-    (S.plan[e.id]||[]).forEach(function(r){ var s=schoolById(r.schoolId); if(s) rows.push([e.date,e.time,e.title,VENUES[e.venue].name,S.seats[e.id]||"",s.name,s.village,num(r.count),hasBought(r)?num(r.bought):""]); });
-    if(num(evUnknown(e.id))) rows.push([e.date,e.time,e.title,VENUES[e.venue].name,S.seats[e.id]||"","Школа не указана","","",num(evUnknown(e.id))]);
+    var ka=kassaAuto(e.id), k=kassaOf(e.id);
+    if(k!==null) sold+=k;
+    if(ka) quota+=num(ka.quota);
+    if(String(e.date)>=today){
+      if(k!==null) soldUp+=k;
+      (S.plan[e.id]||[]).forEach(function(r){ if(num(r.count)>0){ planUp+=num(r.count); planIds[r.schoolId]=1; if(r.status==="go") goIds[r.schoolId]=1; } });
+    }
+  });
+  var t=wTotals();
+  box.appendChild(el("h2",{class:"sech",text:"Главное"}));
+  box.appendChild(el("div",{class:"tiles"},[
+    tile(sold, "Продано билетов за сезон", "по кассе kassir.ru"+(quota?", из "+quota+" в продаже":"")),
+    tile(up.length, "Мероприятий впереди", "продано на них "+soldUp),
+    tile(Object.keys(goIds).length+" из "+Object.keys(planIds).length, "Школ едут", "из записанных в план"),
+    tile(planUp, "Учеников по плану", "на предстоящие"),
+    tile(t.cards+" из "+t.students, "Пушкинских карт", "охват "+t.issue+"%"),
+    tile(t.pupils, "Уже съездило", "на "+held().length+" "+plural(held().length,"мероприятие","мероприятия","мероприятий"))
+  ]));
+
+  box.appendChild(el("h2",{class:"sech",text:"По мероприятиям"}));
+  var evl=el("div",{class:"panel sumlist"});
+  EVENTS.slice().sort(function(a,b){ return String(a.date).localeCompare(String(b.date)); }).forEach(function(e){
+    var f=fillOf(e), b=evBuy(e.id), g=goingSchools(e.id), go=g.filter(function(r){return r.status==="go";}).length;
+    var past=String(e.date)<today;
+    evl.appendChild(el("div",{class:"sumrow"+(past?" past":"")},[
+      el("div",{class:"sumname"},[el("b",{text:e.title}), el("small",{text:dLabel(e)+" · "+((VENUES[e.venue]||{}).name||"")+(past?" · прошло":"")})]),
+      el("div",{class:"sumnums"},[
+        f ? fillBar(f) : el("span",{class:"snote",text:"мест: уточняется"}),
+        el("div",{class:"sumsub",text:(b.plan?"план "+b.plan+(b.tracked?" · купили "+b.total:""):"школ в плане нет")+(g.length?" · едут "+go+" из "+g.length:"")})
+      ])
+    ]));
+  });
+  box.appendChild(evl);
+
+  box.appendChild(el("h2",{class:"sech",text:"По школам"}));
+  var scl=el("div",{class:"panel sumlist"}), rows=S.schools.map(function(s){
+    var inPlan=0; up.forEach(function(e){ (S.plan[e.id]||[]).forEach(function(r){ if(r.schoolId===s.id) inPlan+=num(r.count); }); });
+    return {s:s, plan:inPlan, went:taken(s.id), cards:cardsOf(s.id)};
+  });
+  var active=rows.filter(function(x){ return x.plan || x.went; }).sort(function(a,b){ return (b.plan+b.went)-(a.plan+a.went); });
+  active.forEach(function(x){
+    scl.appendChild(el("div",{class:"sumrow"},[
+      el("div",{class:"sumname"},[el("b",{text:x.s.village||x.s.name}), el("small",{text:x.s.name})]),
+      el("div",{class:"sch3"},[
+        el("span",{},[el("b",{text:String(x.plan)}), el("small",{text:"в плане"})]),
+        el("span",{},[el("b",{text:String(x.went)}), el("small",{text:"съездило"})]),
+        el("span",{},[el("b",{text:x.cards===null?"—":String(x.cards)}), el("small",{text:"с картой"})])
+      ])
+    ]));
+  });
+  var rest=rows.length-active.length;
+  scl.appendChild(el("p",{class:"snote",style:"margin:10px 0 0",text: rest ? "Ещё "+rest+" "+plural(rest,"школа","школы","школ")+" без выездов — их список во вкладке «Школы», фильтр «Без выездов»." : "Все школы участвуют."}));
+  box.appendChild(scl);
+}
+document.getElementById("csvBtn2").addEventListener("click",function(){
+  download("afisha-itogi-"+todayStr()+".csv", csv(), "text/csv");
+  var m=document.getElementById("reportMsg2"); m.textContent="Файл сохранён в загрузки — откройте его в Excel.";
+});
+document.getElementById("sumPrint").addEventListener("click",function(){ showSheet(summarySheet()); });
+document.getElementById("copyReport2").addEventListener("click",function(){
+  buildReport(); document.getElementById("copyReport").click();
+  var m=document.getElementById("reportMsg2"); m.textContent="Текст скопирован — вставьте его в WhatsApp.";
+});
+
+function csv(){
+  var rows=[["Дата","Время","Мероприятие","Площадка","Мест","Продано по кассе","Школа","Село","Учеников","Купили","Статус"]];
+  EVENTS.forEach(function(e){
+    var k=kassaOf(e.id); k=(k===null?"":k);
+    (S.plan[e.id]||[]).forEach(function(r){ var s=schoolById(r.schoolId); if(s) rows.push([e.date,e.time,e.title,VENUES[e.venue].name,S.seats[e.id]||"",k,s.name,s.village,num(r.count),hasBought(r)?num(r.bought):"",r.status==="go"?"едут":"не решили"]); });
+    if(num(evUnknown(e.id))) rows.push([e.date,e.time,e.title,VENUES[e.venue].name,S.seats[e.id]||"",k,"Школа не указана","","",num(evUnknown(e.id)),""]);
   });
   return "\uFEFF"+rows.map(function(r){return r.map(function(c){c=String(c);return /[;"\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c;}).join(";");}).join("\r\n");
 }
@@ -2181,7 +2289,7 @@ _mo.observe(document.querySelector("main"),{childList:true,subtree:true});
 function renderAll(){
   renderNext(); renderAfisha(); if(BUY_EV) renderBuy();
   if(ACCESS.role==="viewer"){ renderWatch(); return; }
-  renderSchools(); renderSchoolCards(); renderContacts(); renderPlan(); renderHistory();
+  renderSchools(); renderSchoolCards(); renderContacts(); renderPlan(); renderHistory(); renderTotals();
 }
 
 /* ---------- общая база ---------- */
