@@ -135,6 +135,7 @@ class LogicTest(unittest.TestCase):
     def test_kassa_parse(self):
         import kassa
         page = ('<table><tr><td colspan="19">Событие (выбрать конкретное): Жизнь и быт горцев. Фольклорная программа / 2026-09-30 / 15:00 / Ставрополье / Активно / 6310289 / МБУК</td></tr>'
+                '<tr><td colspan="19">Площадка: КДЦ Шукты / Махачкала / с. Шукты / 1746988</td></tr>'
                 '<tr><td>300</td>' + '<td>1</td>' * 18 + '</tr>'
                 '<tr class="report-data-total"><td></td><td>100</td><td>30000</td><td>71</td><td>21300</td><td>0</td><td>0</td><td>0</td><td>0</td>'
                 '<td>29</td><td>8700</td><td>29</td><td>8700</td><td>0</td><td>0</td><td>29</td><td>8700</td><td>0</td><td>0</td></tr>'
@@ -143,6 +144,13 @@ class LogicTest(unittest.TestCase):
         self.assertEqual(len(ev), 1)
         self.assertEqual((ev[0]["date"], ev[0]["time"], ev[0]["sold"], ev[0]["quota"], ev[0]["free"], ev[0]["id"]),
                          ("2026-09-30", "15:00", 29, 100, 71, 6310289))
+        self.assertEqual(ev[0]["venue"], "КДЦ Шукты")
+
+    def test_kassa_accounts(self):
+        import kassa
+        env = {"KASSIR_LOGIN": "a", "KASSIR_PASSWORD": "1", "KASSIR_LOGIN_BUTRI": "b", "KASSIR_PASSWORD_BUTRI": "2",
+               "KASSIR_LOGIN_X": "c", "YDB_ENDPOINT": "e"}
+        self.assertEqual(kassa.accounts(env), [("main", "a", "1"), ("butri", "b", "2")])
 
     def test_empty_base(self):
         s = MemStore([("org-code", "editor", "Организатор")])

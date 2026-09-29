@@ -367,6 +367,11 @@ def main():
         copy_data()
     elif cmd == "verify":
         verify(find(FN_API + "/functions", "functions", FN_NAME) or sys.exit("нет функции, сначала setup"))
+    elif cmd == "kassa-code":   # перевыложить код функции кассы — СОТРЁТ вписанные в консоли логины и пароли
+        db = ensure_db()
+        fn = find(FN_API + "/functions", "functions", KASSA_NAME) or sys.exit("нет функции кассы")
+        deploy_version(fn, ensure_fn_sa(), db, "kassa.handler", "120s")
+        print("  логины и пароли кассы нужно вписать в консоли заново")
     elif cmd == "kassa-now":   # вызвать функцию кассы сейчас, не дожидаясь таймера
         fn = find(FN_API + "/functions", "functions", KASSA_NAME) or sys.exit("нет функции кассы")
         r = requests.post(fn_url(fn), data=b"{}", timeout=150, headers={"Authorization": "Bearer " + iam_token()})

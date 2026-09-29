@@ -568,7 +568,7 @@ var START_SCHOOLS = [
  ["Шуктынская СОШ","Шукты"]
 ];
 
-var SITE_VERSION = "2026-09-29-6";
+var SITE_VERSION = "2026-09-29-7";
 var SB_URL = "https://hyjyfmgskcjijyyblvtg.supabase.co";
 var SB_KEY = "sb_publishable_IRpG1zauJd1OLm36YCB40w_gZr4emDL";
 /* Бэкенд в Yandex Cloud (см. MIGRATION.md). Пусто — старый путь через Supabase (там только чтение). */
@@ -632,6 +632,11 @@ function buyInfo(rows, unknown){
 function kassaAuto(evId){
   var e=evById(evId); if(!e || !KASSA || !KASSA.events) return null;
   var c=KASSA.events.filter(function(k){ return k.date===e.date && k.time===e.time; });
+  if(c.length>1){   /* в один день и час бывают события в разных сёлах — смотрим площадку */
+    var v=VENUES[e.venue], vs=v ? stemOf(String(v.name).split(/\s+/).pop()) : "";
+    var byV=vs ? c.filter(function(k){ return normRu(k.venue).indexOf(vs)>=0; }) : [];
+    if(byV.length) c=byV;
+  }
   if(c.length>1){
     var t=normRu(e.title).slice(0,12), byName=c.filter(function(k){ return normRu(k.name).indexOf(t)===0; });
     if(byName.length) c=byName;
@@ -786,7 +791,7 @@ function renderList(){
     } else {
       seatBlock.appendChild(el("small",{text:pl?("Мест: уточняется, запланировано "+pl):"Мест: уточняется"}));
     }
-    if(bu.tracked) seatBlock.appendChild(el("small",{text:"Купили "+bu.total+" из "+bu.plan}));
+    if(bu.tracked && bu.plan) seatBlock.appendChild(el("small",{text:"Купили "+bu.total+" из "+bu.plan}));
     var ka=kassaAuto(e.id);
     if(ka && ACCESS.role) seatBlock.appendChild(el("small",{text:"Касса: продано "+num(ka.sold)+", свободно "+num(ka.free)}));
     var card=el("article",{class:"ev"},[

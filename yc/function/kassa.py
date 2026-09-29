@@ -1,10 +1,11 @@
 """Cloud Function `afisha-kassa`: раз в полчаса берёт продажи из кабинета kassir.ru.
 
-Заходит на new-report.kassir.ru под учёткой организатора (KASSIR_LOGIN / KASSIR_PASSWORD
-в переменных функции), заказывает один «Отчёт по продажам (организатор)» сразу по всем
-событиям и записывает в YDB строку state `kassa`:
-{"events":[{"id","name","date","time","state","quota","free","reserved","sold","returned"}], "at"}.
-Сайт сам сопоставляет события с афишей по дате и времени.
+Учёток может быть несколько — по одной на дом культуры. Каждая задаётся парой переменных
+функции с одинаковым окончанием: KASSIR_LOGIN / KASSIR_PASSWORD, KASSIR_LOGIN_BUTRI /
+KASSIR_PASSWORD_BUTRI и т. д. По каждой функция заходит на new-report.kassir.ru, заказывает
+один «Отчёт по продажам (организатор)» сразу по всем событиям и складывает всё в строку `kassa`:
+{"events":[{"id","name","date","time","venue","state","quota","free","reserved","sold","returned","acc"}],
+ "at", "errors"}. Сайт сопоставляет события с афишей по дате, времени и селу площадки.
 """
 import html
 import http.cookiejar
@@ -87,6 +88,7 @@ def _cells(tr):
             for c in re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", tr, re.S)]
 
 
+VENUE_RE = re.compile(r"Площадка:\s*([^/|]+)")
 EV_RE = re.compile(r"Событие[^:]*:\s*(.+?) / (\d{4}-\d{2}-\d{2}) / (\d{1,2}:\d{2}) / [^/]* / ([^/]+?) / (\d+) /")
 
 
@@ -98,7 +100,11 @@ def parse_sales(page):
         m = EV_RE.search(text)
         if m:
             cur = {"name": m.group(1).strip(), "date": m.group(2), "time": m.group(3),
-                   "state": m.group(4).strip(), "id": int(m.group(5))}
+                   "state": m.group(4).strip(), "id": int(m.group(5)), "venue": ""}
+            continue
+        v = VENUE_RE.search(text)
+        if cur and v:
+            cur["venue"] = v.group(1).strip()
             continue
         if cur and 'report-data-total' in tr[:80]:
             c = _cells(tr)
@@ -117,14 +123,36 @@ def collect(user, password):
     return parse_sales(k.sales_report(ids)) if ids else []
 
 
+def accounts(env):
+    """Пары (окончание, логин, пароль): KASSIR_LOGIN + KASSIR_PASSWORD, KASSIR_LOGIN_X + KASSIR_PASSWORD_X."""
+    out = []
+    for k in sorted(env):
+        if k.startswith("KASSIR_LOGIN"):
+            suf = k[len("KASSIR_LOGIN"):]
+            if env.get(k) and env.get("KASSIR_PASSWORD" + suf):
+                out.append((suf.strip("_").lower() or "main", env[k], env["KASSIR_PASSWORD" + suf]))
+    return out
+
+
 def handler(event, context):
     import index
     import logic
-    user, password = os.environ.get("KASSIR_LOGIN"), os.environ.get("KASSIR_PASSWORD")
-    if not user or not password:
+    accs = accounts(os.environ)
+    if not accs:
         return {"statusCode": 200, "body": json.dumps({"ok": False, "error": "в функции не заданы KASSIR_LOGIN и KASSIR_PASSWORD"}, ensure_ascii=False)}
-    events = collect(user, password)
+    events, errors = [], []
+    for acc, user, password in accs:
+        try:
+            for e in collect(user, password):
+                e["acc"] = acc
+                events.append(e)
+        except Exception as e:   # одна учётка подвела — остальные всё равно записываем
+            errors.append("%s: %s" % (acc, e))
+    if not events and errors:
+        return {"statusCode": 500, "body": json.dumps({"ok": False, "errors": errors}, ensure_ascii=False)}
     st = index.store()
-    st.in_tx(lambda tx: tx.put_state("kassa", {"events": events, "at": logic.now_iso()}, logic.now_iso(), "касса"))
-    return {"statusCode": 200, "body": json.dumps({"ok": True, "events": len(events),
-                                                   "sold": sum(e.get("sold", 0) for e in events)})}
+    at = logic.now_iso()
+    st.in_tx(lambda tx: tx.put_state("kassa", {"events": events, "at": at, "errors": errors}, at, "касса"))
+    return {"statusCode": 200, "body": json.dumps({"ok": True, "accounts": len(accs), "events": len(events),
+                                                   "sold": sum(e.get("sold", 0) for e in events), "errors": errors},
+                                                  ensure_ascii=False)}
