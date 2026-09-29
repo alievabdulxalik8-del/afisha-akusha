@@ -325,9 +325,10 @@ input.inp,textarea.inp,.search{-webkit-appearance:none;appearance:none}
 body{font-size:16px}
 h1,h2,h3{font-family:var(--body)}
 header.top{background:var(--bg);border:0}
-.hero{position:relative;min-height:150px;border-radius:0 0 22px 22px;overflow:hidden;color:#fff;
-  background:#1F3A64 linear-gradient(135deg,#1F3A64 0%,#2C5282 55%,#3B6BA5 100%) center/cover no-repeat}
-.hero::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,20,40,.10) 0%,rgba(10,20,40,.55) 100%)}
+.hero{position:relative;min-height:230px;border-radius:0 0 22px 22px;overflow:hidden;color:#fff;
+  background:#1F3A64 url("hero.webp") center 60%/cover no-repeat}
+/* затемнение поверх фото — чтобы белое название читалось */
+.hero::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(12,24,48,.72) 0%,rgba(12,24,48,.40) 55%,rgba(12,24,48,.70) 100%)}
 .hero .in{position:relative;z-index:1;max-width:1040px;margin:0 auto;padding:28px 18px 26px}
 .hero h1{font-family:var(--body);font-weight:700;font-size:clamp(24px,5vw,36px);line-height:1.2;margin:0;max-width:24ch;color:#fff}
 .hero .sub{color:rgba(255,255,255,.85);margin:8px 0 0;max-width:56ch;font-size:15px}
@@ -452,6 +453,7 @@ footer.site .phone{display:inline-block;font-size:17px;margin:2px 0 6px}
   .ev2 h3{font-size:18px}
   .actions .price{flex:1 0 100%;margin-right:0}
   .actions .btn{flex:1 1 0;justify-content:center}
+  .hero{min-height:200px;background-image:url("hero-m.webp")}
   .hero .in{padding:20px 16px 30px}
   .hero h1{font-size:25px}
   .hero .sub{font-size:14px;margin-top:6px}
@@ -754,7 +756,7 @@ var START_SCHOOLS = [
  ["Шуктынская СОШ","Шукты"]
 ];
 
-var SITE_VERSION = "2026-09-30-4";
+var SITE_VERSION = "2026-09-30-5";
 var SB_URL = "https://hyjyfmgskcjijyyblvtg.supabase.co";
 var SB_KEY = "sb_publishable_IRpG1zauJd1OLm36YCB40w_gZr4emDL";
 /* Бэкенд в Yandex Cloud (см. MIGRATION.md). Пусто — старый путь через Supabase (там только чтение). */
