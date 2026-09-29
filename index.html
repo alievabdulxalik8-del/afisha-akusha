@@ -394,11 +394,36 @@ main.wrap{padding-top:10px}
 .pill.none{background:var(--soft);color:var(--muted);font-weight:600;border:1px solid var(--line)}
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .pill.full{background:#1C3A2A} :root:not([data-theme="light"]) .pill.part{background:#1E2F4A} }
 .gowarn{margin:4px 0 10px;background:#FDF3D7;border:1px solid #E9C766;color:#6B5310;border-radius:10px;padding:8px 12px;font-size:14px}
+/* школы */
+.sctools{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:0 0 14px}
+.sctools .search{flex:1 1 260px;min-height:44px}
+.sc{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:12px}
+.schead{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.schead .gsn b{font-size:18px}
+.schead .gsn small{white-space:normal;overflow:visible}
+.scnums{display:flex;gap:16px;flex:none;text-align:right}
+.scnums span{display:block} .scnums b{display:block;font-size:20px;line-height:1.1} .scnums small{color:var(--muted);font-size:12px}
+.trip2{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px 14px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.tripev{min-width:0;flex:1 1 220px} .tripev b{display:block;font-size:15px} .tripev span{display:block;color:var(--muted);font-size:14px}
+.tripnum{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.tripnum .kids{font-weight:600;font-size:15px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--soft)}
+.seg button{border:0;background:transparent;padding:8px 12px;font-weight:600;font-size:14px;color:var(--muted);cursor:pointer;min-height:40px}
+.seg button[aria-pressed="true"]:first-child{background:var(--ok);color:#fff}
+.seg button[aria-pressed="true"]:last-child{background:var(--paper);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
+.seg button:disabled{cursor:default}
+.sccont{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+.sccont summary{cursor:pointer;color:var(--accent);font-weight:600}
+.sccont p{margin:8px 0 0}
 footer.site{max-width:1040px;margin:0 auto;padding:22px 18px 40px;border-top:1px solid var(--line);color:var(--muted);font-size:14px}
 footer.site a{color:var(--accent);font-weight:600;text-decoration:none}
 footer.site .phone{display:inline-block;font-size:17px;margin:2px 0 6px}
 @media (max-width:700px){
   .ev2{grid-template-columns:68px 1fr;gap:0 12px;padding:14px}
+  .sc{padding:14px}
+  .scnums{gap:12px}
+  .tripnum{width:100%}
+  .seg{margin-left:auto}
   .poster{grid-row:1;min-height:84px;border-radius:12px}
   .evrest{grid-column:1 / -1}
   .poster b{font-size:30px}
@@ -472,6 +497,14 @@ footer.site .phone{display:inline-block;font-size:17px;margin:2px 0 6px}
 <!-- SCHOOLS -->
 <section id="tab-schools" hidden>
   <div class="kpis" id="schoolKpis"></div>
+  <div class="sctools">
+    <input class="search" id="scSearch" type="search" placeholder="Поиск: школа, село или директор" aria-label="Поиск по школам">
+    <div class="filters" id="scFilter" style="margin:0"></div>
+  </div>
+  <div id="scList"></div>
+</section>
+
+<section id="tab-schooledit" hidden>
   <div class="panel">
     <h2>Школы района</h2>
     <p class="hint">Стартовый список собран из открытых источников и может быть неполным. Добавьте недостающие школы и укажите, сколько учащихся 14 лет и старше и у скольких есть Пушкинская карта. Поле «Сквад школ» — это группа соседних сёл. Напишите одинаковое название у нескольких школ, например «Бутри», и в плане мероприятий их можно будет добавить все сразу, одной кнопкой. Если поле не заполнено, сквады в плане не появятся.</p>
@@ -686,7 +719,7 @@ var START_SCHOOLS = [
  ["Шуктынская СОШ","Шукты"]
 ];
 
-var SITE_VERSION = "2026-09-30-2";
+var SITE_VERSION = "2026-09-30-3";
 var SB_URL = "https://hyjyfmgskcjijyyblvtg.supabase.co";
 var SB_KEY = "sb_publishable_IRpG1zauJd1OLm36YCB40w_gZr4emDL";
 /* Бэкенд в Yandex Cloud (см. MIGRATION.md). Пусто — старый путь через Supabase (там только чтение). */
@@ -833,13 +866,13 @@ function visitNote(schoolId){
 function todayStr(){ var t=new Date(); return t.getFullYear()+"-"+String(t.getMonth()+1).padStart(2,"0")+"-"+String(t.getDate()).padStart(2,"0"); }
 
 /* Tabs */
-var TABS=["afisha","schools","contacts","plan","history","data","watch"];
+var TABS=["afisha","schools","schooledit","contacts","plan","history","data","watch"];
 var CURTAB="afisha";
 var tabs=document.querySelectorAll("nav.tabs button");
 /* 3 вкладки; внутри — переключатели на прежние разделы */
 var TAB_GROUPS={
   afisha:[["afisha","Предстоящие"],["history","Прошедшие"],["plan","План выездов"]],
-  schools:[["schools","Список школ"],["contacts","Контакты"]],
+  schools:[["schools","Школы и выезды"],["schooledit","Изменить список"]],
   data:[["data","Итоги и отчёты"]]
 };
 function tabGroup(name){
@@ -879,6 +912,7 @@ function showTab(name){
   if(name==="plan") renderPlan();
   if(name==="history") renderHistory();
   if(name==="contacts") renderContacts();
+  if(name==="schools") renderSchoolCards();
 }
 tabs.forEach(function(b){ b.addEventListener("click", function(){ showTab(b.dataset.tab); }); });
 
@@ -1019,7 +1053,9 @@ function renderList(){
         el("div",{class:"facts"},[
           el("span",{class:"tag"+(e.pk?" pk":" nopk"),text:e.pk?"Пушкинская карта":"Без Пушкинской карты"}),
           el("span",{class:"tag",text:e.age}),
-          going.length ? el("span",{class:"tag going-tag",text:"Едут школы: "+going.length}) : null
+          going.length ? el("span",{class:"tag going-tag",text:(function(){
+            var g=going.filter(function(r){ return r.status==="go"; }).length;
+            return g ? "Едут: "+g+" из "+going.length : "Школ в плане: "+going.length; })()}) : null
         ]),
         el("div",{class:"actions"},[
           el("span",{class:"price",text:"от "+e.price+" ₽"}),
@@ -1065,6 +1101,82 @@ function renderSchools(){
   schoolTotals();
   applyReadOnly();
 }
+/* ---------- «Школы и выезды»: карточка на школу ---------- */
+var SC_FILTER="all";
+function schoolTrips(schoolId){
+  var today=todayStr(), out=[];
+  EVENTS.forEach(function(e){
+    if(String(e.date)<today) return;
+    (S.plan[e.id]||[]).forEach(function(r){ if(r.schoolId===schoolId) out.push({e:e, r:r}); });
+  });
+  return out.sort(function(a,b){ return String(a.e.date).localeCompare(String(b.e.date)); });
+}
+function renderSchoolCards(){
+  var box=document.getElementById("scList"); if(!box) return;
+  var q=normRu((document.getElementById("scSearch")||{}).value||"").trim();
+  var rows=S.schools.map(function(s){
+    var t=schoolTrips(s.id);
+    return {s:s, trips:t, go:t.some(function(x){ return x.r.status==="go"; }), und:t.some(function(x){ return x.r.status!=="go"; })};
+  });
+  var filters=[["all","Все",function(){return true;}],["go","Едут",function(x){return x.go;}],
+               ["und","Не решили",function(x){return x.und;}],["none","Без выездов",function(x){return !x.trips.length;}]];
+  var fb=document.getElementById("scFilter"); fb.textContent="";
+  filters.forEach(function(f){
+    fb.appendChild(el("button",{class:"chip","aria-pressed":SC_FILTER===f[0]?"true":"false",text:f[1]+" ("+rows.filter(f[2]).length+")",
+      onclick:function(){ SC_FILTER=f[0]; renderSchoolCards(); }}));
+  });
+  var test=filters.filter(function(f){ return f[0]===SC_FILTER; })[0][2];
+  var list=rows.filter(test).filter(function(x){
+    return !q || normRu(x.s.name+" "+(x.s.village||"")+" "+(x.s.director||"")).indexOf(q)>=0;
+  }).sort(function(a,b){
+    if(!!b.trips.length!==!!a.trips.length) return b.trips.length?1:-1;
+    return (a.s.village||a.s.name).localeCompare(b.s.village||b.s.name,"ru");
+  });
+  box.textContent="";
+  if(!list.length){ box.appendChild(el("div",{class:"empty",text:"Никого не нашлось. Измените поиск или фильтр."})); return; }
+  var ed=(ACCESS.role==="editor");
+  list.forEach(function(x){
+    var s=x.s, ph=fmtPhone(s.phone);
+    var card=el("article",{class:"sc"},[
+      el("div",{class:"schead"},[
+        el("div",{class:"gsn"},[el("b",{text:s.village||s.name}), el("small",{text:s.name})]),
+        el("div",{class:"scnums"},[
+          el("span",{},[el("b",{text:s.students!==""&&s.students!==undefined?String(num(s.students)):"—"}), el("small",{text:"учеников 14+"})]),
+          el("span",{},[el("b",{text:s.cards!==""&&s.cards!==undefined?String(num(s.cards)):"—"}), el("small",{text:"с картой"})])
+        ])
+      ])
+    ]);
+    if(!x.trips.length) card.appendChild(el("p",{class:"snote",style:"margin:8px 0 0",text:"На ближайшие мероприятия не записана."}));
+    x.trips.forEach(function(t){
+      var r=t.r, pl=num(r.count), has=hasBought(r), bo=num(r.bought), go=(r.status==="go");
+      var cls=!has?"none":(bo>=pl&&pl>0?"full":"part");
+      var seg=el("div",{class:"seg",role:"group","aria-label":"Статус"},[["go","Едут"],["und","Не решили"]].map(function(o){
+        return el("button",{type:"button","aria-pressed":(o[0]==="go")===go?"true":"false",text:o[1],
+          onclick:function(){ if(o[0]==="go") r.status="go"; else delete r.status; save(); renderSchoolCards(); renderList(); }});
+      }));
+      if(!ed) seg.querySelectorAll("button").forEach(function(b){ b.disabled=true; });
+      card.appendChild(el("div",{class:"trip2"},[
+        el("div",{class:"tripev"},[el("b",{text:dLabel(t.e)+" · "+t.e.time}), el("span",{text:t.e.title})]),
+        el("div",{class:"tripnum"},[
+          el("span",{class:"kids",text:pl+" "+plural(pl,"ученик","ученика","учеников")}),
+          el("span",{class:"pill "+cls,title:"купили из плана",text:(cls==="full"?"✓ ":"")+(has?bo:"—")+" из "+pl}),
+          seg
+        ])
+      ]));
+    });
+    var cont=el("details",{class:"sccont"},[el("summary",{text:"Контакты"})]);
+    cont.appendChild(el("p",{text:s.director?("Директор: "+s.director):"Директор не указан"}));
+    var row=el("div",{class:"row"});
+    if(ph) row.appendChild(el("a",{class:"btn small",href:"tel:"+ph.tel,text:"☎ "+ph.text}));
+    if(s.email) row.appendChild(el("a",{class:"btn ghost small mail",href:"mailto:"+s.email,text:s.email}));
+    if(!ph && !s.email) row.appendChild(el("span",{class:"snote",text:"Телефона и почты нет"}));
+    cont.appendChild(row);
+    card.appendChild(cont);
+    box.appendChild(card);
+  });
+}
+document.getElementById("scSearch").addEventListener("input", renderSchoolCards);
+
 function schoolTotals(){
   var st=0, cd=0;
   S.schools.forEach(function(s){ st+=num(s.students); cd+=num(s.cards); });
@@ -2069,7 +2181,7 @@ _mo.observe(document.querySelector("main"),{childList:true,subtree:true});
 function renderAll(){
   renderNext(); renderAfisha(); if(BUY_EV) renderBuy();
   if(ACCESS.role==="viewer"){ renderWatch(); return; }
-  renderSchools(); renderContacts(); renderPlan(); renderHistory();
+  renderSchools(); renderSchoolCards(); renderContacts(); renderPlan(); renderHistory();
 }
 
 /* ---------- общая база ---------- */
