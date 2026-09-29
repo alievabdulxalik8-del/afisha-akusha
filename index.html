@@ -277,6 +277,19 @@ input.inp,textarea.inp,.search{-webkit-appearance:none;appearance:none}
   .sheet table.buy th,.sheet table.buy td{padding:6px 3px}
   .panel{padding:14px}
   .trip{padding:10px}
+  /* строка плана на телефоне: карточка — школа сверху, два поля рядом, крестик в углу */
+  table.plan tr{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;position:relative;padding:10px 12px}
+  table.plan td{display:block;text-align:left;padding:0}
+  table.plan td::before{content:none!important}
+  table.plan td.c-school{grid-column:1 / -1;padding-right:44px}
+  table.plan td.c-school .c-name{display:block;font-weight:600;font-size:16px;line-height:1.3}
+  table.plan td.c-school .snote{display:inline-block;margin:2px 12px 0 0;font-size:13px}
+  table.plan td.c-vil{grid-column:1 / -1;color:var(--muted);font-size:13px;margin-top:-2px}
+  table.plan td.c-num{display:flex;flex-direction:column;gap:3px;margin-top:6px}
+  table.plan td.c-num::before{content:attr(data-l)!important;color:var(--muted);font-size:13px;flex:none;text-align:left}
+  table.plan td.c-num input.inp.num{flex:none;width:100%;font-size:18px;padding:10px;text-align:center}
+  table.plan td.c-warn{grid-column:1 / -1}
+  table.plan td.c-x{position:absolute;top:2px;right:2px;width:auto}
 }
 @media print{
   nav.tabs,.filters,.btn,.x,details.more summary,.carpet{display:none!important}
@@ -555,7 +568,7 @@ var START_SCHOOLS = [
  ["Шуктынская СОШ","Шукты"]
 ];
 
-var SITE_VERSION = "2026-09-29-4";
+var SITE_VERSION = "2026-09-29-5";
 var SB_URL = "https://hyjyfmgskcjijyyblvtg.supabase.co";
 var SB_KEY = "sb_publishable_IRpG1zauJd1OLm36YCB40w_gZr4emDL";
 /* Бэкенд в Yandex Cloud (см. MIGRATION.md). Пусто — старый путь через Supabase (там только чтение). */
@@ -927,7 +940,7 @@ function rowsTable(rows, onCount, onRemove, onBought){
   var tb=el("tbody");
   rows.forEach(function(r){
     var s=schoolById(r.schoolId); if(!s) return;
-    var wcell=el("td",{class:"warn"});
+    var wcell=el("td",{class:"warn c-warn"});
     function setWarn(){ wcell.textContent = (s.cards!=="" && num(r.count)>num(s.cards)) ? "больше, чем карт у школы ("+s.cards+")" : ""; }
     var c=el("input",{class:"inp num",type:"number",min:"0",value:r.count||"","aria-label":"Сколько учеников"});
     c.addEventListener("change",function(){ r.count=this.value; setWarn(); onCount(); });
@@ -936,15 +949,15 @@ function rowsTable(rows, onCount, onRemove, onBought){
     setWarn();
     var note=visitNote(s.id), ph=fmtPhone(s.phone);
     tb.appendChild(el("tr",{},[
-      el("td",{},[el("span",{text:s.name}),
+      el("td",{class:"c-school"},[el("span",{class:"c-name",text:s.name}),
         note?el("small",{class:"snote",text:note}):null,
         ph?el("a",{class:"snote",href:"tel:"+ph.tel,text:"☎ "+ph.text}):null]),
-      el("td",{text:s.village||""}), el("td",{},[c]), el("td",{},[b]),
+      el("td",{class:"c-vil",text:s.village||""}), el("td",{class:"c-num"},[c]), el("td",{class:"c-num"},[b]),
       wcell,
-      el("td",{},[el("button",{class:"x",text:"×","aria-label":"Убрать "+s.name,onclick:function(){ rows.splice(rows.indexOf(r),1); onRemove(); }})])
+      el("td",{class:"c-x"},[el("button",{class:"x",text:"×","aria-label":"Убрать "+s.name,onclick:function(){ rows.splice(rows.indexOf(r),1); onRemove(); }})])
     ]));
   });
-  return el("div",{class:"tablewrap"},[el("table",{},[el("thead",{},[el("tr",{},[el("th",{text:"Школа"}),el("th",{text:"Село"}),el("th",{text:"Учеников"}),el("th",{text:"Купили"}),el("th",{text:""}),el("th",{text:""})])]),tb])]);
+  return el("div",{class:"tablewrap"},[el("table",{class:"plan"},[el("thead",{},[el("tr",{},[el("th",{text:"Школа"}),el("th",{text:"Село"}),el("th",{text:"Учеников"}),el("th",{text:"Купили"}),el("th",{text:""}),el("th",{text:""})])]),tb])]);
 }
 function renderPlan(){
   planSel.value=curEv;
