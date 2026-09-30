@@ -757,7 +757,7 @@ var START_SCHOOLS = [
  ["Шуктынская СОШ","Шукты"]
 ];
 
-var SITE_VERSION = "2026-09-30-7";
+var SITE_VERSION = "2026-09-30-8";
 var SB_URL = "https://hyjyfmgskcjijyyblvtg.supabase.co";
 var SB_KEY = "sb_publishable_IRpG1zauJd1OLm36YCB40w_gZr4emDL";
 /* Бэкенд в Yandex Cloud (см. MIGRATION.md). Пусто — старый путь через Supabase (там только чтение). */
@@ -1096,9 +1096,7 @@ function renderList(){
         el("div",{class:"facts"},[
           el("span",{class:"tag"+(e.pk?" pk":" nopk"),text:e.pk?"Пушкинская карта":"Без Пушкинской карты"}),
           el("span",{class:"tag",text:e.age}),
-          going.length ? el("span",{class:"tag going-tag",text:(function(){
-            var g=going.filter(function(r){ return r.status==="go"; }).length;
-            return g ? "Едут: "+g+" из "+going.length : "Школ в плане: "+going.length; })()}) : null
+          going.length ? el("span",{class:"tag going-tag",text:"Школ в плане: "+going.length}) : null
         ]),
         el("div",{class:"actions"},[
           el("span",{class:"price",text:"от "+e.price+" ₽"}),
@@ -1159,10 +1157,11 @@ function renderSchoolCards(){
   var q=normRu((document.getElementById("scSearch")||{}).value||"").trim();
   var rows=S.schools.map(function(s){
     var t=schoolTrips(s.id);
-    return {s:s, trips:t, go:t.some(function(x){ return x.r.status==="go"; }), und:t.some(function(x){ return x.r.status!=="go"; })};
+    return {s:s, trips:t};
   });
-  var filters=[["all","Все",function(){return true;}],["go","Едут",function(x){return x.go;}],
-               ["und","Не решили",function(x){return x.und;}],["none","Без выездов",function(x){return !x.trips.length;}]];
+  var filters=[["all","Все",function(){return true;}],["trips","С выездами",function(x){return x.trips.length>0;}],
+               ["none","Без выездов",function(x){return !x.trips.length;}]];
+  if(!filters.some(function(f){ return f[0]===SC_FILTER; })) SC_FILTER="all";
   var fb=document.getElementById("scFilter"); fb.textContent="";
   filters.forEach(function(f){
     fb.appendChild(el("button",{class:"chip","aria-pressed":SC_FILTER===f[0]?"true":"false",text:f[1]+" ("+rows.filter(f[2]).length+")",
@@ -1177,7 +1176,6 @@ function renderSchoolCards(){
   });
   box.textContent="";
   if(!list.length){ box.appendChild(el("div",{class:"empty",text:"Никого не нашлось. Измените поиск или фильтр."})); return; }
-  var ed=(ACCESS.role==="editor");
   list.forEach(function(x){
     var s=x.s, ph=fmtPhone(s.phone);
     var card=el("article",{class:"sc"},[
@@ -1191,19 +1189,13 @@ function renderSchoolCards(){
     ]);
     if(!x.trips.length) card.appendChild(el("p",{class:"snote",style:"margin:8px 0 0",text:"На ближайшие мероприятия не записана."}));
     x.trips.forEach(function(t){
-      var r=t.r, pl=num(r.count), has=hasBought(r), bo=num(r.bought), go=(r.status==="go");
+      var r=t.r, pl=num(r.count), has=hasBought(r), bo=num(r.bought);
       var cls=!has?"none":(bo>=pl&&pl>0?"full":"part");
-      var seg=el("div",{class:"seg",role:"group","aria-label":"Статус"},[["go","Едут"],["und","Не решили"]].map(function(o){
-        return el("button",{type:"button","aria-pressed":(o[0]==="go")===go?"true":"false",text:o[1],
-          onclick:function(){ if(o[0]==="go") r.status="go"; else delete r.status; save(); renderSchoolCards(); renderList(); }});
-      }));
-      if(!ed) seg.querySelectorAll("button").forEach(function(b){ b.disabled=true; });
       card.appendChild(el("div",{class:"trip2"},[
         el("div",{class:"tripev"},[el("b",{text:dLabel(t.e)+" · "+t.e.time}), el("span",{text:t.e.title})]),
         el("div",{class:"tripnum"},[
           el("span",{class:"kids",text:pl+" "+plural(pl,"ученик","ученика","учеников")}),
-          el("span",{class:"pill "+cls,title:"купили из плана",text:(cls==="full"?"✓ ":"")+(has?bo:"—")+" из "+pl}),
-          seg
+          el("span",{class:"pill "+cls,title:"купили из плана",text:(cls==="full"?"✓ ":"")+(has?bo:"—")+" из "+pl})
         ])
       ]));
     });
@@ -2179,13 +2171,13 @@ function renderTotals(){
   box.appendChild(el("h2",{class:"sech",text:"По мероприятиям"}));
   var evl=el("div",{class:"panel sumlist"});
   EVENTS.slice().sort(function(a,b){ return String(a.date).localeCompare(String(b.date)); }).forEach(function(e){
-    var f=fillOf(e), b=evBuy(e.id), g=goingSchools(e.id), go=g.filter(function(r){return r.status==="go";}).length;
+    var f=fillOf(e), b=evBuy(e.id), g=goingSchools(e.id);
     var past=String(e.date)<today;
     evl.appendChild(el("div",{class:"sumrow"+(past?" past":"")},[
       el("div",{class:"sumname"},[el("b",{text:e.title}), el("small",{text:dLabel(e)+" · "+((VENUES[e.venue]||{}).name||"")+(past?" · прошло":"")})]),
       el("div",{class:"sumnums"},[
         f ? fillBar(f) : el("span",{class:"snote",text:"мест: уточняется"}),
-        el("div",{class:"sumsub",text:(b.plan?"план "+b.plan+(b.tracked?" · купили "+b.total:""):"школ в плане нет")+(g.length?" · едут "+go+" из "+g.length:"")})
+        el("div",{class:"sumsub",text:(b.plan?"план "+b.plan+(b.tracked?" · купили "+b.total:""):"школ в плане нет")+(g.length?" · школ "+g.length:"")})
       ])
     ]));
   });
@@ -2222,10 +2214,10 @@ document.getElementById("copyReport2").addEventListener("click",function(){
 });
 
 function csv(){
-  var rows=[["Дата","Время","Мероприятие","Площадка","Мест","Продано по кассе","Школа","Село","Учеников","Купили","Статус"]];
+  var rows=[["Дата","Время","Мероприятие","Площадка","Мест","Продано по кассе","Школа","Село","Учеников","Купили"]];
   EVENTS.forEach(function(e){
     var k=kassaOf(e.id); k=(k===null?"":k);
-    (S.plan[e.id]||[]).forEach(function(r){ var s=schoolById(r.schoolId); if(s) rows.push([e.date,e.time,e.title,VENUES[e.venue].name,S.seats[e.id]||"",k,s.name,s.village,num(r.count),hasBought(r)?num(r.bought):"",r.status==="go"?"едут":"не решили"]); });
+    (S.plan[e.id]||[]).forEach(function(r){ var s=schoolById(r.schoolId); if(s) rows.push([e.date,e.time,e.title,VENUES[e.venue].name,S.seats[e.id]||"",k,s.name,s.village,num(r.count),hasBought(r)?num(r.bought):""]); });
     if(num(evUnknown(e.id))) rows.push([e.date,e.time,e.title,VENUES[e.venue].name,S.seats[e.id]||"",k,"Школа не указана","","",num(evUnknown(e.id)),""]);
   });
   return "\uFEFF"+rows.map(function(r){return r.map(function(c){c=String(c);return /[;"\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c;}).join(";");}).join("\r\n");
