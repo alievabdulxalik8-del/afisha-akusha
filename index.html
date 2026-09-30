@@ -757,7 +757,7 @@ var START_SCHOOLS = [
  ["Шуктынская СОШ","Шукты"]
 ];
 
-var SITE_VERSION = "2026-09-30-6";
+var SITE_VERSION = "2026-09-30-7";
 var SB_URL = "https://hyjyfmgskcjijyyblvtg.supabase.co";
 var SB_KEY = "sb_publishable_IRpG1zauJd1OLm36YCB40w_gZr4emDL";
 /* Бэкенд в Yandex Cloud (см. MIGRATION.md). Пусто — старый путь через Supabase (там только чтение). */
@@ -1229,7 +1229,7 @@ function schoolTotals(){
   var k=document.getElementById("schoolKpis"); k.textContent="";
   var sq=[];
   S.schools.forEach(function(s){ var g=groupOf(s); if(g && sq.indexOf(g)<0) sq.push(g); });
-  [[S.schools.length,"школ в списке"],[sq.length,"сквадов задано"],[filled+" из "+S.schools.length,"заполнено карт"],[st,"учащихся 14+"],[cd,"с Пушкинской картой"]].forEach(function(x){
+  [[S.schools.length,"школ в списке"],[sq.length,"сквадов задано"],[filled+" из "+S.schools.length,"заполнено карт"],[st,"учащихся 14+"],[cd,"с Пушкинской картой"],[st?Math.round(cd/st*100)+"%":"—","охват картами · без карты "+Math.max(0,st-cd)]].forEach(function(x){
     k.appendChild(el("div",{class:"kpi"},[el("b",{text:String(x[0])}),el("span",{text:x[1]})]));
   });
 }
