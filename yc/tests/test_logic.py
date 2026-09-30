@@ -152,6 +152,29 @@ class LogicTest(unittest.TestCase):
                "KASSIR_LOGIN_X": "c", "YDB_ENDPOINT": "e"}
         self.assertEqual(kassa.accounts(env), [("main", "a", "1"), ("butri", "b", "2")])
 
+    def test_kassa_refresh(self):
+        calls = []
+
+        def refresh():
+            calls.append(1)
+            self.s.put_state("kassa", {"events": [{"sold": 34}]}, logic.now_iso(), "касса")
+        _, r = req(self.s, op="kassa_refresh", code="nope")
+        self.assertEqual(r["error"], "bad_code")
+        _, r = logic.handle(self.s, json.dumps({"op": "kassa_refresh", "code": "kur-code"}), refresh)
+        self.assertTrue(r["ok"] and r["refreshed"])
+        self.assertEqual(r["kassa"]["events"][0]["sold"], 34)
+        # второе нажатие сразу — кассу не дёргаем, отдаём то, что уже есть
+        _, r = logic.handle(self.s, json.dumps({"op": "kassa_refresh", "code": "org-code"}), refresh)
+        self.assertTrue(r["ok"])
+        self.assertFalse(r["refreshed"])
+        self.assertEqual(len(calls), 1)
+
+    def test_kassa_refresh_error(self):
+        _, r = logic.handle(self.s, json.dumps({"op": "kassa_refresh", "code": "org-code"}), lambda: "main: касса не ответила")
+        self.assertEqual((r["ok"], r["error"], r["detail"]), (False, "kassa", "main: касса не ответила"))
+        _, r = req(self.s, op="kassa_refresh", code="org-code")
+        self.assertEqual(r["error"], "kassa")
+
     def test_empty_base(self):
         s = MemStore([("org-code", "editor", "Организатор")])
         _, r = req(s, op="load", code="org-code")

@@ -342,6 +342,7 @@ header.top{background:var(--bg);border:0}
 .statsnote .stale{color:var(--ink);background:#FDF3D7;border:1px solid #E9C766;border-radius:8px;padding:2px 8px}
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .statsnote .stale{background:#3A3118;border-color:#8A6D22} }
 .statsnote .btn{margin-left:auto}
+.statsnote .kassabtn{margin-left:0}
 nav.tabs{max-width:1040px;margin:18px auto 0;padding:4px;display:grid;grid-template-columns:repeat(3,1fr);gap:4px;
   background:var(--paper);border:1px solid var(--line);border-radius:14px}
 nav.tabs button{border:0;border-radius:10px;padding:12px 8px;font-size:16px;font-weight:600;color:var(--muted);text-align:center}
@@ -756,7 +757,7 @@ var START_SCHOOLS = [
  ["Шуктынская СОШ","Шукты"]
 ];
 
-var SITE_VERSION = "2026-09-30-5";
+var SITE_VERSION = "2026-09-30-6";
 var SB_URL = "https://hyjyfmgskcjijyyblvtg.supabase.co";
 var SB_KEY = "sb_publishable_IRpG1zauJd1OLm36YCB40w_gZr4emDL";
 /* Бэкенд в Yandex Cloud (см. MIGRATION.md). Пусто — старый путь через Supabase (там только чтение). */
@@ -987,6 +988,11 @@ function renderNext(){
     var old=(Date.now()-Date.parse(KASSA_AT))>3*3600*1000;
     note.appendChild(el("span",{text:"Продажи с kassir.ru, обновлено "+agoText(KASSA_AT)}));
     if(old) note.appendChild(el("span",{class:"stale",text:"Данные могут быть устаревшими"}));
+    if(YC_URL){
+      var kb=el("button",{class:"btn ghost small kassabtn",id:"kassaBtn",
+        text:KASSA_BUSY?"Обновляю… до минуты":"Обновить из кассы", onclick:kassaRefresh});
+      kb.disabled=KASSA_BUSY; note.appendChild(kb);
+    }
   } else if(!ACCESS.role){
     note.appendChild(el("span",{text:"Продажи видны после входа по коду."}));
   } else if(k!==null){
@@ -2295,18 +2301,18 @@ function renderAll(){
 /* ---------- общая база ---------- */
 var API_TIMEOUT = 15000;   /* столько ждём ответа базы, потом сдаёмся */
 
-function api(fn, body, done){
+function api(fn, body, done, wait){
   var fired=false, ctrl=null, timer;
   function finish(err,res){ if(fired) return; fired=true; clearTimeout(timer); done(err,res); }
   try{ ctrl=new AbortController(); }catch(e){}
   timer=setTimeout(function(){
     try{ if(ctrl) ctrl.abort(); }catch(e){}
     finish({timeout:true});
-  }, API_TIMEOUT);
+  }, wait||API_TIMEOUT);
   var url, opts;
   if(YC_URL){
     /* text/plain — простой запрос, браузер не шлёт лишний OPTIONS */
-    var q={op: fn==="afisha_save" ? "save" : "load", code: body.p_code};
+    var q={op: fn==="afisha_save" ? "save" : fn==="kassa_refresh" ? "kassa_refresh" : "load", code: body.p_code};
     if(fn==="afisha_save"){ q.data=body.p_data; q.since=body.p_since; }
     else if(body.since!==undefined){ q.since=body.since; q.afisha_since=body.afisha_since; q.kassa_since=body.kassa_since; }
     url=YC_URL; opts={method:"POST", headers:{"Content-Type":"text/plain;charset=UTF-8"}, body:JSON.stringify(q)};
@@ -2442,6 +2448,27 @@ function refreshFromServer(){
     if(applyServer(j.data) || afNew || kNew){ saveLocal(); renderAll(); showTab(CURTAB); }
     setSync(afNew?"афиша обновлена":undefined);
   });
+}
+
+/* Кнопка «Обновить из кассы»: функция сама заходит на kassir.ru, это занимает до минуты */
+var KASSA_BUSY=false;
+function kassaRefresh(){
+  if(KASSA_BUSY || !ACCESS.role) return;
+  KASSA_BUSY=true; renderNext();
+  api("kassa_refresh", {p_code:ACCESS.code}, function(err,res){
+    KASSA_BUSY=false;
+    var j=res&&res.body, msg;
+    if(!err && j && j.ok===true){
+      KASSA=j.kassa||null; KASSA_AT=j.kassa_updated_at||null;
+      if(j.afisha_updated_at && j.afisha_updated_at!==AFISHA_AT){ AFISHA_AT=j.afisha_updated_at; applyAfisha(j.afisha); }
+      saveLocal(); renderAll(); showTab(CURTAB);
+      msg = j.refreshed ? "Продажи обновлены из кассы" : "Касса только что обновлялась — цифры свежие";
+    } else {
+      renderNext();
+      msg = "Не получилось обновить из кассы"+(j&&j.detail?": "+j.detail:"")+". Попробуйте ещё раз через пару минут.";
+    }
+    setSync(msg);
+  }, 130000);
 }
 
 function hhmm(iso){

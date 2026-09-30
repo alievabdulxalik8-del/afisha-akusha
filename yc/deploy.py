@@ -209,7 +209,7 @@ def ensure_fn(name, desc, public):
     return fn
 
 
-def deploy_version(fn, sa, db, entrypoint, timeout="10s"):
+def deploy_version(fn, sa, db, entrypoint, timeout="10s", env=None):
     host, path = db_conn(db)
     print("выкладываю версию", fn["name"], "…")
     wait_op(call("POST", FN_API + "/versions", {
@@ -220,7 +220,7 @@ def deploy_version(fn, sa, db, entrypoint, timeout="10s"):
         "executionTimeout": timeout,
         "serviceAccountId": sa["id"],
         "content": fn_zip(),
-        "environment": {"YDB_ENDPOINT": host, "YDB_DATABASE": path},
+        "environment": dict({"YDB_ENDPOINT": host, "YDB_DATABASE": path}, **(env or {})),
     }))
     print("готово:", fn_url(fn))
 
@@ -359,8 +359,10 @@ def main():
         db = ensure_db()
         sa = ensure_fn_sa()
         deploy_version(ensure_fn(ADMIN_NAME, "служебная: схема и перенос данных, закрытая", False), sa, db, "admin.handler")
-        deploy_version(ensure_fn(FN_NAME, "бэкенд афиши", True), sa, db, "index.handler")
-        ensure_kassa(sa, db)
+        kassa = ensure_kassa(sa, db)
+        # 150 с — хватает, чтобы кнопка «Обновить из кассы» дождалась функции кассы
+        deploy_version(ensure_fn(FN_NAME, "бэкенд афиши", True), sa, db, "index.handler", "150s",
+                       {"KASSA_URL": fn_url(kassa)})
         if cmd == "setup":
             ensure_tables()
     elif cmd == "copy":

@@ -119,11 +119,32 @@ def op_save(store, code, data, since):
     return store.in_tx(attempt)
 
 
+# кнопка «Обновить из кассы»: чаще раза в 3 минуты кассу не дёргаем
+KASSA_GAP = 180
+
+
+def op_kassa_refresh(store, code, refresh):
+    """Сходить в кассу сейчас (refresh() вызывает функцию afisha-kassa) и вернуть свежие данные."""
+    if not check_code(store, code):
+        return {"ok": False, "error": "bad_code"}
+    last = parse_ts(store.meta().get(KASSA_ID))
+    fresh = last is not None and (datetime.datetime.now(datetime.timezone.utc) - last).total_seconds() < KASSA_GAP
+    if not fresh:
+        if refresh is None:
+            return {"ok": False, "error": "kassa", "detail": "обновление из кассы не настроено"}
+        err = refresh()
+        if err:
+            return {"ok": False, "error": "kassa", "detail": err}
+    res = op_load(store, code)
+    res["refreshed"] = not fresh
+    return res
+
+
 MAX_BODY = 2 * 1024 * 1024
 
 
-def handle(store, body_text):
-    """Разбор запроса сайта: {"op":"load"|"save", "code":…, …}."""
+def handle(store, body_text, refresh=None):
+    """Разбор запроса сайта: {"op":"load"|"save"|"kassa_refresh", "code":…, …}."""
     if not body_text or len(body_text) > MAX_BODY:
         return 400, {"ok": False, "error": "bad_request"}
     try:
@@ -136,6 +157,8 @@ def handle(store, body_text):
     if op == "load":
         return 200, op_load(store, req.get("code"), req.get("since"), req.get("afisha_since"),
                             req["kassa_since"] if "kassa_since" in req else NOT_SENT)
+    if op == "kassa_refresh":
+        return 200, op_kassa_refresh(store, req.get("code"), refresh)
     if op == "save":
         res = op_save(store, req.get("code"), req.get("data"), req.get("since"))
         return (400 if res.get("error") == "bad_request" else 200), res
