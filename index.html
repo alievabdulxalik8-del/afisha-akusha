@@ -1071,10 +1071,15 @@ function renderAfisha(){ renderFilters(); renderList(); }
 function fillOf(e){
   var ka=kassaAuto(e.id), seats=num(S.seats[e.id]), pl=planned(e.id);
   if(ka && num(ka.quota)) return {used:num(ka.sold), cap:num(ka.quota), free:num(ka.free), label:"продано"};
+  if(seats && pl>seats) return {used:pl, cap:seats, free:0, over:true};
   if(seats) return {used:pl, cap:seats, free:Math.max(0,seats-pl), label:"записано по плану"};
   return null;
 }
 function fillBar(f){
+  if(f.over) return el("div",{class:"fill"},[
+    el("div",{class:"bar3 y",role:"img","aria-label":"приглашено "+f.used+", мест "+f.cap},[el("i",{style:"width:100%"})]),
+    el("div",{class:"fillnum"},[el("b",{text:"приглашено "+f.used}), el("span",{text:" · мест "+f.cap+" · купят не все"})])
+  ]);
   var share=f.cap ? f.free/f.cap : 0, cls=share>0.3 ? "g" : (share>0.1 ? "y" : "r");
   var pct=f.cap ? Math.min(100, Math.round(f.used/f.cap*100)) : 0;
   return el("div",{class:"fill"},[
@@ -1318,10 +1323,11 @@ function renderCapacity(){
   box.appendChild(!seats
     ? el("p",{class:"hint",text:"Запланировано учеников: "+pl+". Укажите число мест, чтобы проверить вместимость."})
     : (pl>seats
-      ? el("p",{class:"warn",text:"Запланировано "+pl+" при "+seats+" местах: не хватает "+(pl-seats)+"."})
-      : el("p",{class:"ok",text:"Запланировано "+pl+" из "+seats+" мест, свободно "+(seats-pl)+"."})));
+      ? el("p",{class:"hint",text:"Приглашено "+pl+", мест "+seats+". Можно приглашать больше: билеты купят не все. Важно, чтобы купленных не стало больше мест."})
+      : el("p",{class:"ok",text:"Приглашено "+pl+" из "+seats+" мест, свободно "+(seats-pl)+"."})));
   var b=evBuy(curEv);
   if(b.tracked) box.appendChild(el("p",{class:b.total>=b.plan?"ok":"hint",text:buyLine(b)+"."}));
+  if(seats && b.tracked && b.total>seats) box.appendChild(el("p",{class:"warn",text:"Куплено "+b.total+", а мест "+seats+": не хватает "+(b.total-seats)+"."}));
 }
 
 function groupOf(s){ return (s.group||"").trim(); }
@@ -1495,8 +1501,10 @@ function drawPick(){
   var main=rows.length ? rows.length+" "+plural(rows.length,"школа","школы","школ") : "Никто не выбран";
   tot.appendChild(el("b",{text:main}));
   if(rows.length){
-    if(seats) tot.appendChild(pl>seats
-      ? el("span",{class:"warn",text:pl+" "+plural(pl,"ученик","ученика","учеников")+" при "+seats+" местах: не хватает "+(pl-seats)})
+    var bb=evBuy(ev);
+    if(seats && bb.tracked && bb.total>seats) tot.appendChild(el("span",{class:"warn",text:"куплено "+bb.total+" при "+seats+" местах: не хватает "+(bb.total-seats)}));
+    else if(seats) tot.appendChild(pl>seats
+      ? el("span",{text:"приглашено "+pl+" при "+seats+" местах · купят не все"})
       : el("span",{text:pl+" из "+seats+" мест · свободно "+(seats-pl)}));
     else tot.appendChild(el("span",{text:pl+" "+plural(pl,"ученик","ученика","учеников")+" · укажите места в зале"}));
   }
@@ -1979,10 +1987,12 @@ function wCard(title, meta, rows, seats, unknown, evId){
   if(bi.tracked && bi.plan) card.appendChild(el("p",{class:"snote",text:buyLine(bi)+"."}));
   if(ka) card.appendChild(el("p",{class:"snote",text:"Касса kassir.ru: продано "+num(ka.sold)+", свободно "+num(ka.free)+"."}));
   if(seats){
-    card.appendChild(progressBar(Math.round(total/seats*100), total>seats));
-    card.appendChild(el("span",{class:"snote",text: total>seats
-      ? ("Мест "+seats+", записано "+total+" — не хватает "+(total-seats))
-      : ("Мест "+seats+", свободно "+(seats-total))}));
+    var sold=bi.tracked ? bi.total : 0;
+    card.appendChild(progressBar(Math.round((sold||total)/seats*100), sold>seats));
+    card.appendChild(el("span",{class:"snote"+(sold>seats?" warn":""),text: sold>seats
+      ? ("Мест "+seats+", куплено "+sold+" — не хватает "+(sold-seats))
+      : (total>seats ? ("Мест "+seats+", приглашено "+total+" — купят не все")
+                     : ("Мест "+seats+", свободно "+(seats-total)))}));
   }
   return card;
 }
@@ -2187,7 +2197,7 @@ function renderSummary(){
     tb.appendChild(el("tr",{},[
       el("td",{text:dLabel(e)}), el("td",{text:e.title}),
       el("td",{class:"n",text:seats?String(seats):"—"}),
-      el("td",{class:"n"+(seats&&pl>seats?" warn":""),text:String(pl)}),
+      el("td",{class:"n",text:String(pl)}),
       el("td",{text:names||"—"})
     ]));
   });
