@@ -215,23 +215,22 @@ details.pickmulti[open]>summary{border-color:var(--accent)}
 .squads{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px}
 .squads .chip{font-size:14px;padding:6px 12px;min-height:40px}
 .picklist{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--paper)}
-.prow{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:8px 14px;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--ink);text-align:left;font:inherit;cursor:pointer}
+.prow{display:flex;align-items:center;gap:10px;width:100%;padding:0 14px;border-bottom:1px solid var(--line);color:var(--ink);flex-wrap:wrap}
+.ptog{display:flex;align-items:center;gap:12px;flex:1 1 200px;min-width:0;min-height:56px;padding:8px 0;border:0;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.ptog:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:8px}
+.pcount{display:flex;align-items:center;gap:6px;flex:0 0 auto;padding:6px 0}
+.pcount button{width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:inherit;font-size:20px;line-height:1;cursor:pointer}
+.pcount input{width:58px;height:40px;text-align:center;padding:0 4px;font-variant-numeric:tabular-nums}
+.pcount small{color:var(--muted);font-size:13px;min-width:44px}
+.pcount small.warn{color:var(--warn)}
 .prow:last-child{border-bottom:0}
 .prow .box{flex:0 0 auto;width:24px;height:24px;border:2px solid var(--line);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;line-height:1;color:var(--accent-ink)}
 .prow.on{background:var(--soft)}
 .prow.on .box{background:var(--accent);border-color:var(--accent)}
 .prow .txt{flex:1;min-width:0;line-height:1.3}
 .prow .txt small{display:block;color:var(--muted);font-size:13px}
-.prow .cnt{flex:0 0 auto;color:var(--muted);font-size:14px;white-space:nowrap}
 .pickempty{padding:16px;color:var(--muted);text-align:center}
 .pickhelp{color:var(--muted);font-size:13px;margin:10px 2px 0}
-/* меню «⋯» на карточке мероприятия */
-details.menu{position:relative}
-details.menu>summary{list-style:none;cursor:pointer;min-width:48px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;font-size:20px;line-height:1;padding:0 14px}
-details.menu>summary::-webkit-details-marker{display:none}
-details.menu .menulist{position:absolute;left:auto;right:0;top:calc(100% + 6px);z-index:6;min-width:210px;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:6px;display:flex;flex-direction:column;gap:2px;box-shadow:0 6px 24px rgba(0,0,0,.18)}
-details.menu .menulist .btn{background:transparent;color:var(--ink);border:0;text-align:left;justify-content:flex-start;width:100%;border-radius:8px;font-weight:500}
-details.menu .menulist .btn:hover{background:var(--soft)}
 .fpanel{display:flex;flex-wrap:wrap;gap:10px;align-items:center;flex:1 1 100%}
 .fpanel[hidden]{display:none}
 .filters .search{flex:1 1 220px}
@@ -370,9 +369,17 @@ header.top{background:var(--bg);border:0}
 .hero .in{position:relative;z-index:1;max-width:1040px;margin:0 auto;padding:28px 18px 26px}
 .hero h1{font-family:var(--body);font-weight:700;font-size:clamp(24px,5vw,36px);line-height:1.2;margin:0;max-width:24ch;color:#fff}
 .hero .sub{color:rgba(255,255,255,.85);margin:8px 0 0;max-width:56ch;font-size:15px}
-.stats{display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:12px;max-width:1040px;margin:-22px auto 0;padding:0 18px;position:relative;z-index:2}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:1040px;margin:-22px auto 0;padding:0 18px;position:relative;z-index:2}
 .stat{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:14px 16px;box-shadow:0 2px 10px rgba(16,32,56,.06);min-width:0}
 .stat .lbl{display:block;color:var(--muted);font-size:14px}
+.nextc{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:14px 16px;box-shadow:0 2px 10px rgba(16,32,56,.06);min-width:0;display:flex;flex-direction:column;gap:2px}
+.nextc .lbl{color:var(--muted);font-size:14px}
+.nextc .ndate{font-size:24px;line-height:1.2;color:var(--ink)}
+.nextc .ntitle{color:var(--muted);font-size:14px;overflow-wrap:anywhere}
+.nnums{display:flex;gap:28px;margin:10px 0 8px}
+.nnums span{display:flex;flex-direction:column}
+.nnums b{font-size:32px;line-height:1.05;color:var(--ink);font-variant-numeric:tabular-nums}
+.nnums small{color:var(--muted);font-size:14px}
 .stat .big{display:block;font-size:34px;font-weight:700;line-height:1.15;margin-top:2px;color:var(--ink)}
 .stat .big.bigdate{font-size:24px}
 .stat .small{display:block;color:var(--muted);font-size:14px;margin-top:2px;overflow-wrap:anywhere}
@@ -497,7 +504,10 @@ footer.site .phone{display:inline-block;font-size:17px;margin:2px 0 6px}
   .hero h1{font-size:25px}
   .hero .sub{font-size:14px;margin-top:6px}
   .stat{padding:12px 14px}
-  .stats{grid-template-columns:1fr 1fr;gap:10px;padding:0 16px}
+  .stats{grid-template-columns:1fr;gap:10px;padding:0 16px}
+  .pcount{margin-left:36px}
+  .nextc .ndate{font-size:21px}
+  .nnums b{font-size:28px}
   .stat.next3{grid-column:1 / -1}
   .stat .big{font-size:30px}
   .statsnote{padding:0 16px}
@@ -796,7 +806,7 @@ var START_SCHOOLS = [
  ["Шуктынская СОШ","Шукты"]
 ];
 
-var SITE_VERSION = "2026-10-05-2";
+var SITE_VERSION = "2026-10-05-3";
 var SB_URL = "https://hyjyfmgskcjijyyblvtg.supabase.co";
 var SB_KEY = "sb_publishable_IRpG1zauJd1OLm36YCB40w_gZr4emDL";
 /* Бэкенд в Yandex Cloud (см. MIGRATION.md). Пусто — старый путь через Supabase (там только чтение). */
@@ -1010,19 +1020,43 @@ function stat(label, big, small, cls){
     small?el("span",{class:"small",text:small}):null
   ]);
 }
-/* Сверху три больших числа — по ближайшему мероприятию */
+/* «через 3 дня» — сколько осталось до мероприятия */
+function untilText(iso){
+  var d=Math.round((Date.parse(iso+"T00:00:00")-Date.parse(todayStr()+"T00:00:00"))/86400000);
+  if(isNaN(d)) return "";
+  if(d<=0) return "сегодня";
+  if(d===1) return "завтра";
+  return "через "+d+" "+plural(d,"день","дня","дней");
+}
+/* Карточка мероприятия наверху: дата, время, продано и свободно в одном окне */
+function nextCard(e, label){
+  var ka=kassaAuto(e.id), k=kassaOf(e.id), seats=num(S.seats[e.id]);
+  var cap = ka && num(ka.quota) ? num(ka.quota) : seats;
+  var sold = k!==null ? k : null;
+  var free = ka ? num(ka.free) : (sold!==null && cap ? Math.max(0,cap-sold) : null);
+  var pct = cap && sold!==null ? Math.min(100, Math.round(sold/cap*100)) : 0;
+  var share = cap && free!==null ? free/cap : 1, cls = share>0.3 ? "g" : (share>0.1 ? "y" : "r");
+  return el("div",{class:"nextc"},[
+    el("span",{class:"lbl",text:label+" · "+untilText(e.date)}),
+    el("b",{class:"ndate",text:dLabel(e)+", "+e.time}),
+    el("span",{class:"ntitle",text:e.title+" · "+((VENUES[e.venue]||{}).name||"")}),
+    el("div",{class:"nnums"},[
+      el("span",{},[el("b",{text:sold!==null?String(sold):"—"}), el("small",{text:"продано"+(cap?" из "+cap:"")})]),
+      el("span",{},[el("b",{text:free!==null?String(free):"—"}), el("small",{text:"свободно"})])
+    ]),
+    cap ? el("div",{class:"bar3 "+cls,role:"img","aria-label":"продано "+(sold||0)+" из "+cap},[el("i",{style:"width:"+pct+"%"})]) : null
+  ]);
+}
+/* Сверху — два ближайших мероприятия: они часто идут почти подряд */
 function renderNext(){
-  var t=todayStr(), nx=EVENTS.filter(function(e){return e.date>=t;})[0];
+  var t=todayStr(), up=EVENTS.filter(function(e){return e.date>=t;}), nx=up[0];
   var box=document.getElementById("stats"), note=document.getElementById("statsNote");
   box.textContent=""; note.textContent="";
-  if(!nx){ box.appendChild(stat("Ближайшее мероприятие","—","Все мероприятия из афиши прошли","next3")); return; }
-  var ka=kassaAuto(nx.id), k=kassaOf(nx.id), seats=num(S.seats[nx.id]);
-  var sold = k!==null ? String(k) : "—";
-  var free = ka ? String(num(ka.free)) : (k!==null && seats ? String(Math.max(0,seats-k)) : "—");
-  box.appendChild(stat("Билетов продано", sold, ka ? "из "+num(ka.quota)+" в продаже" : (seats?"мест в зале "+seats:"")));
-  box.appendChild(stat("Свободно", free, "мест на ближайшее"));
-  box.appendChild(stat("Ближайшее мероприятие", dLabel(nx)+", "+nx.time,
-    nx.title+" · "+((VENUES[nx.venue]||{}).name||""), "next3"));
+  if(!nx){ box.appendChild(el("div",{class:"nextc"},[el("span",{class:"lbl",text:"Ближайшее мероприятие"}),
+    el("b",{class:"ndate",text:"—"}), el("span",{class:"ntitle",text:"Все мероприятия из афиши прошли"})])); return; }
+  var k=kassaOf(nx.id);
+  box.appendChild(nextCard(nx,"Ближайшее"));
+  if(up[1]) box.appendChild(nextCard(up[1],"Следующее"));
   if(KASSA_AT){
     var old=(Date.now()-Date.parse(KASSA_AT))>3*3600*1000;
     note.appendChild(el("span",{text:"Продажи с kassir.ru, обновлено "+agoText(KASSA_AT)}));
@@ -1129,17 +1163,14 @@ function renderList(){
     var buyLink=el("a",{class:"btn",href:e.url,target:"_blank",rel:"noopener",text:"Купить билет"});
     var actionsEl;
     if(ACCESS.role==="editor"){
-      /* организатору — главная кнопка «Кто едет» и «Подробнее»; редкое — в меню «⋯» */
+      /* организатору — «Кто едет» главной кнопкой; «Отметить покупки» — внутри «Подробнее» */
       var nPlan=(S.plan[e.id]||[]).length;
-      var items=[buyLink];
-      if(nPlan) items.unshift(el("button",{class:"btn",type:"button",text:"Отметить покупки",onclick:function(){ openBuy(e.id); }}));
+      buyLink.className="btn ghost";
+      if(nPlan) more.appendChild(el("div",{class:"row"},[
+        el("button",{class:"btn small",type:"button",text:"Отметить покупки",onclick:function(){ openBuy(e.id); }})]));
       actionsEl=el("div",{class:"actions"},[
         el("span",{class:"price",text:"от "+e.price+" ₽"}),
-        moreBtn,
-        el("details",{class:"menu"},[
-          el("summary",{class:"btn ghost","aria-label":"Ещё действия",title:"Ещё",text:"⋯"}),
-          el("div",{class:"menulist"},items)
-        ]),
+        moreBtn, buyLink,
         el("button",{class:"btn",type:"button",text:nPlan?"Кто едет · "+nPlan:"Кто едет",onclick:function(){ openPick(e.id); }})
       ]);
     } else {
@@ -1482,10 +1513,6 @@ function pickChanged(){
 }
 window.addEventListener("popstate",function(){ if(PICK_EV) closePick(true); });
 document.addEventListener("keydown",function(ev){ if(ev.key==="Escape" && PICK_EV) closePick(); });
-/* меню «⋯» закрывается нажатием мимо него */
-document.addEventListener("click",function(ev){
-  [].forEach.call(document.querySelectorAll("details.menu[open]"),function(d){ if(!d.contains(ev.target)) d.open=false; });
-});
 /* убрать школы из плана; если у них отмечены покупки — спрашиваем */
 function pickRemove(ids){
   var rows=S.plan[PICK_EV], lost=0;
@@ -1501,6 +1528,20 @@ function pickAdd(ids){
     S.plan[PICK_EV].push({schoolId:id,count:s.cards!==""?s.cards:""});
   });
   pickChanged();
+}
+/* сколько учеников едет от школы: − число + */
+function pickCount(r, s){
+  function set(v){ r.count=String(Math.max(1, Math.min(999, v||1))); save(); drawPick(); }
+  var inp=el("input",{class:"inp",type:"number",inputmode:"numeric",min:"1",id:"pc-"+s.id,value:String(num(r.count)||""),
+    "aria-label":"Учеников от школы «"+s.name+"»"});
+  inp.addEventListener("change",function(){ set(num(this.value)); });
+  var over = s.cards!=="" && num(r.count)>num(s.cards);
+  return el("div",{class:"pcount"},[
+    el("button",{type:"button","aria-label":"Меньше",text:"−",onclick:function(){ set(num(r.count)-1); }}),
+    inp,
+    el("button",{type:"button","aria-label":"Больше",text:"+",onclick:function(){ set(num(r.count)+1); }}),
+    el("small",{class:over?"warn":"",text:over?"карт "+num(s.cards):"уч."})
+  ]);
 }
 function drawPick(){
   if(!PICK_EV) return;
@@ -1548,19 +1589,22 @@ function drawPick(){
   shown.forEach(function(s){
     var r=pickRow(s.id), on=!!r, note=visitNote(s.id);
     var sub=[s.village||"", groupOf(s)?"сквад "+groupOf(s):"", note].filter(Boolean).join(" · ");
-    list.appendChild(el("button",{class:"prow"+(on?" on":""),type:"button","aria-pressed":on?"true":"false",
-      onclick:function(){ if(on) pickRemove([s.id]); else pickAdd([s.id]); }},[
-      el("span",{class:"box","aria-hidden":"true",text:on?"✓":""}),
-      el("span",{class:"txt"},[ el("span",{text:s.name}), sub?el("small",{text:sub}):null ]),
-      on&&num(r.count)?el("span",{class:"cnt",text:num(r.count)+" уч."}):null
-    ]));
+    var row=el("div",{class:"prow"+(on?" on":"")},[
+      el("button",{class:"ptog",type:"button","aria-pressed":on?"true":"false",
+        onclick:function(){ if(on) pickRemove([s.id]); else pickAdd([s.id]); }},[
+        el("span",{class:"box","aria-hidden":"true",text:on?"✓":""}),
+        el("span",{class:"txt"},[ el("span",{text:s.name}), sub?el("small",{text:sub}):null ])
+      ])
+    ]);
+    if(on) row.appendChild(pickCount(r, s));
+    list.appendChild(row);
   });
 
   var help=document.getElementById("pickHelp"); help.textContent="";
   if(!groups.length)
     help.appendChild(el("p",{class:"pickhelp",text:"Чтобы добавлять сразу несколько соседних сёл, впишите одинаковый «Сквад школ» во вкладке «Школы»."}));
   else if(rows.length)
-    help.appendChild(el("p",{class:"pickhelp",text:"Число учеников у каждой школы можно поправить во вкладке «План выездов»."}));
+    help.appendChild(el("p",{class:"pickhelp",text:"Сначала ставится столько учеников, сколько у школы карт. Поправьте число кнопками − и +."}));
 }
 
 /* ---------- Быстрый ввод покупок ---------- */
