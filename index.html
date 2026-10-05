@@ -546,6 +546,7 @@ footer.site .phone{display:inline-block;font-size:17px;margin:2px 0 6px}
 .hero .nextc .bar3.g i{background:var(--accent)}
 .hero .themebtn{top:14px;right:14px}
 .hero .themepop{top:66px;right:12px}
+.hero.popopen{z-index:80}
 .statsnote{margin-top:12px}
 @media (max-width:700px){
   .hero{margin:8px 8px 0;border-radius:20px}
@@ -929,7 +930,7 @@ var START_SCHOOLS = [
  ["Шуктынская СОШ","Шукты"]
 ];
 
-var SITE_VERSION = "2026-10-05-8";
+var SITE_VERSION = "2026-10-05-9";
 var SB_URL = "https://hyjyfmgskcjijyyblvtg.supabase.co";
 var SB_KEY = "sb_publishable_IRpG1zauJd1OLm36YCB40w_gZr4emDL";
 /* Бэкенд в Yandex Cloud (см. MIGRATION.md). Пусто — старый путь через Supabase (там только чтение). */
@@ -2807,6 +2808,8 @@ function renderLookPop(){
 function toggleLookPop(open){
   var pop=document.getElementById("themePop"), btn=document.getElementById("themeBtn");
   pop.hidden = open===undefined ? !pop.hidden : !open;
+  /* пока окно открыто, шапка поднимается над полосой вкладок — иначе вкладки закрывают окно */
+  document.getElementById("heroPhoto").classList.toggle("popopen", !pop.hidden);
   btn.setAttribute("aria-expanded", pop.hidden?"false":"true");
   renderLookPop();
 }
