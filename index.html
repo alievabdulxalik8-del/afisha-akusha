@@ -229,10 +229,9 @@ details.pickmulti[open]>summary{border-color:var(--accent)}
 details.menu{position:relative}
 details.menu>summary{list-style:none;cursor:pointer;min-width:48px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;font-size:20px;line-height:1;padding:0 14px}
 details.menu>summary::-webkit-details-marker{display:none}
-details.menu .menulist{position:absolute;left:0;top:calc(100% + 6px);z-index:6;min-width:210px;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:6px;display:flex;flex-direction:column;gap:2px;box-shadow:0 6px 24px rgba(0,0,0,.18)}
+details.menu .menulist{position:absolute;left:auto;right:0;top:calc(100% + 6px);z-index:6;min-width:210px;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:6px;display:flex;flex-direction:column;gap:2px;box-shadow:0 6px 24px rgba(0,0,0,.18)}
 details.menu .menulist .btn{background:transparent;color:var(--ink);border:0;text-align:left;justify-content:flex-start;width:100%;border-radius:8px;font-weight:500}
 details.menu .menulist .btn:hover{background:var(--soft)}
-@media (min-width:701px){details.menu .menulist{left:auto;right:0}}
 .fpanel{display:flex;flex-wrap:wrap;gap:10px;align-items:center;flex:1 1 100%}
 .fpanel[hidden]{display:none}
 .filters .search{flex:1 1 220px}
@@ -797,7 +796,7 @@ var START_SCHOOLS = [
  ["Шуктынская СОШ","Шукты"]
 ];
 
-var SITE_VERSION = "2026-10-05-1";
+var SITE_VERSION = "2026-10-05-2";
 var SB_URL = "https://hyjyfmgskcjijyyblvtg.supabase.co";
 var SB_KEY = "sb_publishable_IRpG1zauJd1OLm36YCB40w_gZr4emDL";
 /* Бэкенд в Yandex Cloud (см. MIGRATION.md). Пусто — старый путь через Supabase (там только чтение). */
@@ -1126,17 +1125,17 @@ function renderList(){
     var moreBtn=el("button",{class:"btn ghost",type:"button","aria-expanded":"false",text:"Подробнее",onclick:function(){
       var open=more.hidden; more.hidden=!open; this.setAttribute("aria-expanded",open?"true":"false");
       this.textContent=open?"Свернуть":"Подробнее";
-      var dm=this.closest("details"); if(dm) dm.open=false;
     }});
     var buyLink=el("a",{class:"btn",href:e.url,target:"_blank",rel:"noopener",text:"Купить билет"});
     var actionsEl;
     if(ACCESS.role==="editor"){
-      /* организатору — одна главная кнопка, остальное в меню «⋯» */
+      /* организатору — главная кнопка «Кто едет» и «Подробнее»; редкое — в меню «⋯» */
       var nPlan=(S.plan[e.id]||[]).length;
-      var items=[moreBtn, buyLink];
-      if(nPlan) items.push(el("button",{class:"btn",type:"button",text:"Отметить покупки",onclick:function(){ openBuy(e.id); }}));
+      var items=[buyLink];
+      if(nPlan) items.unshift(el("button",{class:"btn",type:"button",text:"Отметить покупки",onclick:function(){ openBuy(e.id); }}));
       actionsEl=el("div",{class:"actions"},[
         el("span",{class:"price",text:"от "+e.price+" ₽"}),
+        moreBtn,
         el("details",{class:"menu"},[
           el("summary",{class:"btn ghost","aria-label":"Ещё действия",title:"Ещё",text:"⋯"}),
           el("div",{class:"menulist"},items)
@@ -1429,14 +1428,16 @@ function syncHistBought(evId){
   });
 }
 /* ---------- Кто едет: выбор школ одним нажатием ---------- */
-var PICK_EV=null, PICK_Q="";
+var PICK_EV=null, PICK_Q="", PICK_FIRST={};
 function openPick(evId){
   if(ACCESS.role!=="editor") return;
   PICK_EV=evId; PICK_Q=""; S.plan[evId]=S.plan[evId]||[];
+  /* уже выбранные — наверху; порядок запоминаем при открытии, чтобы строки не прыгали под пальцем */
+  PICK_FIRST={}; S.plan[evId].forEach(function(r){ PICK_FIRST[r.schoolId]=1; });
   var e=evById(evId); if(!e) return;
   var box=document.getElementById("pickIn"); box.textContent="";
 
-  var seats=el("input",{class:"inp num",type:"number",inputmode:"numeric",min:"0",value:S.seats[evId]||"","aria-label":"Мест в зале"});
+  var seats=el("input",{class:"inp num",type:"number",inputmode:"numeric",min:"0",id:"pickSeats",placeholder:"—",value:S.seats[evId]||"","aria-label":"Мест в зале"});
   seats.addEventListener("change",function(){ S.seats[evId]=this.value.trim(); save(); drawPick(); });
 
   box.appendChild(el("div",{class:"pickhead"},[
@@ -1457,11 +1458,15 @@ function openPick(evId){
   box.appendChild(el("button",{class:"btn bigbtn",type:"button",style:"margin-top:14px",text:"Готово",onclick:closePick}));
 
   drawPick();
+  try{ if(!(history.state && history.state.pick)) history.pushState({pick:1},""); }catch(err){}
   document.getElementById("pickWrap").hidden=false;
   document.body.style.overflow="hidden";
   document.getElementById("pickWrap").scrollTop=0;
 }
-function closePick(){
+function closePick(fromBack){
+  if(!PICK_EV) return;
+  /* открытие экрана добавило шаг в историю — убираем его, чтобы «Назад» не уводил с сайта */
+  if(!fromBack && history.state && history.state.pick){ history.back(); return; }
   PICK_EV=null;
   document.getElementById("pickWrap").hidden=true;
   document.body.style.overflow="";
@@ -1475,6 +1480,12 @@ function pickRow(schoolId){
 function pickChanged(){
   recalcUnknown(PICK_EV); save(); drawPick();
 }
+window.addEventListener("popstate",function(){ if(PICK_EV) closePick(true); });
+document.addEventListener("keydown",function(ev){ if(ev.key==="Escape" && PICK_EV) closePick(); });
+/* меню «⋯» закрывается нажатием мимо него */
+document.addEventListener("click",function(ev){
+  [].forEach.call(document.querySelectorAll("details.menu[open]"),function(d){ if(!d.contains(ev.target)) d.open=false; });
+});
 /* убрать школы из плана; если у них отмечены покупки — спрашиваем */
 function pickRemove(ids){
   var rows=S.plan[PICK_EV], lost=0;
@@ -1502,9 +1513,9 @@ function drawPick(){
   tot.appendChild(el("b",{text:main}));
   if(rows.length){
     var bb=evBuy(ev);
-    if(seats && bb.tracked && bb.total>seats) tot.appendChild(el("span",{class:"warn",text:"куплено "+bb.total+" при "+seats+" местах: не хватает "+(bb.total-seats)}));
+    if(seats && bb.tracked && bb.total>seats) tot.appendChild(el("span",{class:"warn",text:"куплено "+bb.total+" при "+seats+" "+plural(seats,"месте","местах","местах")+": не хватает "+(bb.total-seats)}));
     else if(seats) tot.appendChild(pl>seats
-      ? el("span",{text:"приглашено "+pl+" при "+seats+" местах · купят не все"})
+      ? el("span",{text:"приглашено "+pl+" при "+seats+" "+plural(seats,"месте","местах","местах")+" · купят не все"})
       : el("span",{text:pl+" из "+seats+" мест · свободно "+(seats-pl)}));
     else tot.appendChild(el("span",{text:pl+" "+plural(pl,"ученик","ученика","учеников")+" · укажите места в зале"}));
   }
@@ -1523,13 +1534,15 @@ function drawPick(){
   });
 
   /* школы */
-  var q=PICK_Q.trim().toLowerCase();
+  var q=normRu(PICK_Q).trim();
   var list=document.getElementById("pickList"); list.textContent="";
   var shown=S.schools.filter(function(s){
     if(!q) return true;
-    return (s.name+" "+(s.village||"")+" "+groupOf(s)).toLowerCase().indexOf(q)>=0;
+    return normRu(s.name+" "+(s.village||"")+" "+groupOf(s)).indexOf(q)>=0;
   }).sort(function(a,b){
-    return (groupOf(a)+a.village+a.name).localeCompare(groupOf(b)+b.village+b.name,"ru");
+    var sa=!!PICK_FIRST[a.id], sb=!!PICK_FIRST[b.id];
+    if(sa!==sb) return sa?-1:1;
+    return a.name.localeCompare(b.name,"ru");
   });
   if(!shown.length) list.appendChild(el("div",{class:"pickempty",text:q?"Такой школы нет в списке.":"Школ пока нет. Добавьте их во вкладке «Школы»."}));
   shown.forEach(function(s){
@@ -2638,7 +2651,6 @@ function setSync(txt){
     ]));
     return;
   }
-  var who = ACCESS.role==="editor" ? "вы: "+ACCESS.label : "только просмотр — "+ACCESS.label;
   var state;
   if(SYNC.err==="net") state="нет связи, изменения не сохранены — пробую ещё раз";
   else if(SYNC.err==="timeout") state="база не отвечает, изменения не сохранены — пробую ещё раз";
