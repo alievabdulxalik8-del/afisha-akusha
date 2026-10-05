@@ -554,6 +554,22 @@ footer.site .phone{display:inline-block;font-size:17px;margin:2px 0 6px}
   .hero .sub{font-size:14px}
   .hero .stats{padding:16px 12px 12px}
 }
+/* рабочий инструмент: яркий цвет темы — только у главных кнопок и полосок продаж, остальное спокойное */
+nav.tabs button[aria-selected="true"]{background:var(--ink);color:var(--bg)}
+.subnav button[aria-pressed="true"]{border-color:var(--ink);color:var(--ink);background:var(--paper)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.poster{background:linear-gradient(160deg,color-mix(in srgb,var(--poster1) 78%,var(--paper)) 0%,color-mix(in srgb,var(--poster2) 78%,var(--paper)) 100%)}
+.poster.butri{background:linear-gradient(200deg,color-mix(in srgb,var(--poster1) 78%,var(--paper)) 0%,color-mix(in srgb,var(--poster2) 78%,var(--paper)) 100%)}
+/* фото не перекрашиваем в цвет темы — нейтральное затемнение не спорит с горами */
+.hero{background-color:#15171A}
+.hero::after{background:linear-gradient(180deg,rgba(8,9,11,.6) 0%,rgba(8,9,11,.14) 42%,rgba(8,9,11,.78) 100%)}
+.hero .nextc{background:rgba(255,255,255,.10)}
+/* немного жизни: полоски продаж наверху плавно заполняются, карточка мероприятия откликается на наведение */
+@keyframes barGrow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.hero .bar3 i{transform-origin:left center;animation:barGrow .9s cubic-bezier(.2,.7,.2,1) both}
+.ev2{transition:border-color .2s,transform .2s}
+@media (hover:hover){.ev2:hover{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}}
+@media (prefers-reduced-motion: reduce){.hero .bar3 i{animation:none}.ev2{transition:none}}
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){ .hero .nextc{background:rgba(var(--tint),.72)} }
 .themebtn:focus-visible{outline:2px solid #fff;outline-offset:2px}
 header.top{position:relative}
@@ -572,7 +588,7 @@ header.top{position:relative}
 <script>
 /* Темы: [фон, карточка, текст, приглушённый, линии, акцент, текст на акценте, затемнение фото (r,g,b), афиша 1, афиша 2] */
 var LOOKS={
- hearth:{name:"Очаг", d:["#17120E","#221A14","#F4EBE1","#B5A595","#3A2D23","#F2A65A","#1E1206","30,18,10","#C2552B","#6B2E1F"],
+ hearth:{name:"Очаг", d:["#141312","#1E1C1A","#F3EEE8","#A8A098","#2F2C29","#F2A65A","#1E1206","30,18,10","#C2552B","#6B2E1F"],
                      l:["#F7F1EA","#FFFFFF","#241A12","#73665A","#E9DED2","#B9561B","#FFFFFF","30,18,10","#C2552B","#6B2E1F"]},
  thyme:{name:"Чай с чабрецом", d:["#17121A","#221B26","#F1EAF3","#AFA2B5","#352B3A","#E7B26B","#1A1208","28,16,32","#8A5098","#4A2856"],
                      l:["#F6F1F5","#FFFFFF","#241B27","#6F6274","#E6DCE6","#7A3F86","#FFFFFF","28,16,32","#8A5098","#4A2856"]},
@@ -901,7 +917,7 @@ var START_SCHOOLS = [
  ["Шуктынская СОШ","Шукты"]
 ];
 
-var SITE_VERSION = "2026-10-05-6";
+var SITE_VERSION = "2026-10-05-7";
 var SB_URL = "https://hyjyfmgskcjijyyblvtg.supabase.co";
 var SB_KEY = "sb_publishable_IRpG1zauJd1OLm36YCB40w_gZr4emDL";
 /* Бэкенд в Yandex Cloud (см. MIGRATION.md). Пусто — старый путь через Supabase (там только чтение). */
