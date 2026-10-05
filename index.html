@@ -573,12 +573,17 @@ nav.tabs button[aria-selected="true"]{background:var(--ink);color:var(--bg)}
 @media (prefers-reduced-motion: reduce){.hero .bar3 i{animation:none}.ev2{transition:none}}
 /* Пушкин на полях: пиксельный, ходит по пустому месту слева и справа на широком экране */
 .pushkin{position:fixed;left:0;bottom:16px;z-index:30;pointer-events:none;will-change:transform}
-.pushkin canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;pointer-events:auto;cursor:pointer;filter:drop-shadow(0 6px 6px rgba(0,0,0,.25))}
-.pbub{position:absolute;bottom:222px;padding:12px 16px;background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:22px;
+.pfig{position:relative;cursor:pointer;pointer-events:auto}
+.pfig img{position:absolute;bottom:0;left:50%;height:100%;width:auto;margin:0;translate:-50% 0;filter:drop-shadow(0 8px 10px rgba(0,0,0,.28));transition:opacity .25s}
+.pwalk{transform-origin:50% 100%}
+.pread{opacity:0}
+.pushkin.reading .pread{opacity:1}
+.pushkin.reading .pwalk{opacity:0}
+.pbub{position:absolute;bottom:236px;padding:12px 16px;background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:22px;
   font-size:15px;line-height:1.45;font-style:italic;white-space:pre-line;box-shadow:0 10px 30px -12px rgba(0,0,0,.35);opacity:0;transform:translateY(6px);transition:opacity .35s,transform .35s;min-height:3.2em}
 .ptail{position:absolute;display:block;background:var(--paper);border:1px solid var(--line);border-radius:50%;opacity:0;transition:opacity .35s}
-.ptail.p1{width:18px;height:18px;left:74px;bottom:196px}
-.ptail.p2{width:10px;height:10px;left:66px;bottom:184px}
+.ptail.p1{width:18px;height:18px;left:62px;bottom:212px}
+.ptail.p2{width:10px;height:10px;left:54px;bottom:200px}
 .pushkin.talk .pbub{opacity:1;transform:none}
 .pushkin.talk .ptail{opacity:1}
 @media print{.pushkin{display:none}}
@@ -930,7 +935,7 @@ var START_SCHOOLS = [
  ["Шуктынская СОШ","Шукты"]
 ];
 
-var SITE_VERSION = "2026-10-05-9";
+var SITE_VERSION = "2026-10-06-1";
 var SB_URL = "https://hyjyfmgskcjijyyblvtg.supabase.co";
 var SB_KEY = "sb_publishable_IRpG1zauJd1OLm36YCB40w_gZr4emDL";
 /* Бэкенд в Yandex Cloud (см. MIGRATION.md). Пусто — старый путь через Supabase (там только чтение). */
@@ -2971,72 +2976,9 @@ renderNext(); renderAfisha(); labelTables();
 })();
 </script>
 <script>
-/* ---------- Пушкин на полях: ходит по свободному месту и читает стихи (только на широком экране) ---------- */
+/* ---------- Пушкин на полях: объёмный персонаж ходит по свободному месту и читает стихи (только на широком экране) ---------- */
 (function(){
-  var PAL={K:"#18181c",k:"#3b3b46",H:"#2a1b12",h:"#4b3121",S:"#e9b994",s:"#c78e69",E:"#1a1414",W:"#f4efe4",w:"#cfc6b4",
-    L:"#141418",C:"#2b3550",c:"#1c2337",P:"#3a3a43",B:"#111114",Y:"#7b2d22",y:"#efe2c4",G:"#6b4a2b",R:"#c46a5a"};
-  var HEAD=[
-    "........KKKKKKKK........",
-    "........KkKKKKKK........",
-    "........KkKKKKKK........",
-    "........KkKKKKKK........",
-    "........KKKKKKKK........",
-    "......KKKKKKKKKKKK......",
-    ".......HHhHHHHhHHH......",
-    "......HHhHHHHHHHhHH.....",
-    "......HHSSSSSSSSHHH.....",
-    "......HHSESSSSESSHH.....",
-    "......HHSSSSSSSSSHH.....",
-    "......HHSSSSsSSSSHH.....",
-    "......HHHSSSSSSSHHH.....",
-    ".......HHSSRRSSHHH......",
-    "........HHSSSSHH........",
-    ".........sSSSSs........."];
-  var BODY=[
-    "........CWWLLWWC........",
-    ".......CCWWLLWWCC.......",
-    "......CCCCWWWWCCCC......",
-    ".....CCCCCcWWcCCCCC.....",
-    ".....CCcCCCWWCCCcCC.....",
-    ".....CCcCCCCCCCCcCC.....",
-    ".....CCcCCCCCCCCcCC.....",
-    ".....CCcCCCCCCCCcCC.....",
-    ".....CCcCCCCCCCCcCC.....",
-    ".....SScCCCCCCCCcSS.....",
-    ".....SS.CCCCCCCC.SS.....",
-    "........CCCCCCCC........",
-    "........CCCcCCCC........",
-    "........CCCcCCCC........"];
-  /* руки держат раскрытую книгу */
-  var READ=[
-    "........CWWLLWWC........",
-    ".......CCWWLLWWCC.......",
-    "......CCCCWWWWCCCC......",
-    ".....CCCCCcWWcCCCCC.....",
-    ".....CCcCCCWWCCCcCC.....",
-    ".....CCcCYYYYYYCCcCC....",
-    "......CcSYyyyyYSCc......",
-    "......CcSYyyyyYSCc......",
-    "......CCCYYYYYYCCC......",
-    "......CCCCCCCCCCCC......",
-    "........CCCCCCCC........",
-    "........CCCCCCCC........",
-    "........CCCcCCCC........",
-    "........CCCcCCCC........"];
-  var LEGS=[[
-    ".........PP..PP.........",
-    ".........PP..PP.........",
-    ".........PP..PP.........",
-    ".........PP..PP.........",
-    ".........PP..PP.........",
-    "........BBB..BBB........"],[
-    "........PP....PP........",
-    "........PP....PP........",
-    ".......PP......PP.......",
-    ".......PP......PP.......",
-    "......PP........PP......",
-    ".....BBB........BBB....."]];
-  var W=24, Hh=HEAD.length+BODY.length+6, SC=5;
+  var BOXW=110, H=210;   /* размер на экране; картинки pushkin-walk.webp и pushkin-read.webp — вдвое крупнее, для чётких экранов */
   var POEMS=[
     ["Кавказ подо мною. Один в вышине","Стою над снегами у края стремнины…"],
     ["Октябрь уж наступил — уж роща отряхает","Последние листы с нагих своих ветвей…"],
@@ -3056,41 +2998,33 @@ renderNext(); renderAfisha(); labelTables();
   window.pushkinEnabled=enabled;
   window.setPushkin=function(on){ try{ localStorage.setItem(KEY,on?"on":"off"); }catch(e){} on?start():stop(); };
 
-  var box,cv,ctx,bub,txt,raf=0,st=null,reduce=false;
-  function draw(frame,reading,face){
-    ctx.clearRect(0,0,W,Hh);
-    var rows=HEAD.concat(reading?READ:BODY, LEGS[reading?0:frame]);
-    ctx.save();
-    if(face<0){ ctx.translate(W,0); ctx.scale(-1,1); }
-    for(var y=0;y<rows.length;y++) for(var x=0;x<W;x++){
-      var c=rows[y].charAt(x); if(c!=="." && PAL[c]){ ctx.fillStyle=PAL[c]; ctx.fillRect(x,y,1,1); }
-    }
-    ctx.restore();
-  }
-  function gutter(){ var content=1100; return Math.floor((window.innerWidth-content)/2); }
+  var box,fig,walkImg,readImg,bub,txt,raf=0,st=null,reduce=false;
+  function gutter(){ return Math.floor((window.innerWidth-1100)/2); }
   function build(){
     box=document.createElement("div"); box.className="pushkin"; box.setAttribute("aria-hidden","true");
     bub=document.createElement("div"); bub.className="pbub"; txt=document.createElement("div"); bub.appendChild(txt);
     var t1=document.createElement("i"), t2=document.createElement("b"); t1.className="ptail p1"; t2.className="ptail p2";
-    box.appendChild(t1); box.appendChild(t2);
-    cv=document.createElement("canvas"); cv.width=W; cv.height=Hh; cv.style.width=(W*SC)+"px"; cv.style.height=(Hh*SC)+"px";
-    cv.title="А. С. Пушкин — нажмите, чтобы он прочёл другое стихотворение";
-    ctx=cv.getContext("2d");
-    box.appendChild(bub); box.appendChild(cv); document.body.appendChild(box);
-    cv.addEventListener("click",function(){ if(st){ st.mode="read"; st.target=null; st.until=performance.now()+9000; say(); } });
+    fig=document.createElement("div"); fig.className="pfig"; fig.style.width=BOXW+"px"; fig.style.height=H+"px";
+    fig.title="А. С. Пушкин — нажмите, чтобы он прочёл другое стихотворение";
+    walkImg=new Image(); walkImg.src="pushkin-walk.webp"; walkImg.alt=""; walkImg.className="pwalk";
+    readImg=new Image(); readImg.src="pushkin-read.webp"; readImg.alt=""; readImg.className="pread";
+    fig.appendChild(walkImg); fig.appendChild(readImg);
+    box.appendChild(bub); box.appendChild(t1); box.appendChild(t2); box.appendChild(fig);
+    document.body.appendChild(box);
+    fig.addEventListener("click",function(){ if(st){ st.mode="read"; st.target=null; st.until=performance.now()+9000; say(); } });
   }
   function pickPoem(){
-    var m=new Date().getMonth(), pool=POEMS.slice();
-    if(st && st.first){ st.first=false; return m>=8 && m<=10 ? POEMS[1] : POEMS[0]; }   /* осенью — «Октябрь уж наступил» */
-    var p; do{ p=pool[Math.floor(Math.random()*pool.length)]; }while(st && p===st.poem && pool.length>1);
+    var m=new Date().getMonth();
+    if(st.first){ st.first=false; return m>=8 && m<=10 ? POEMS[1] : POEMS[0]; }   /* осенью — «Октябрь уж наступил» */
+    var p; do{ p=POEMS[Math.floor(Math.random()*POEMS.length)]; }while(p===st.poem);
     return p;
   }
-  function placeRange(side){
-    var g=gutter(), w=W*SC;
-    return side<0 ? {min:16, max:Math.max(16,g-w-16)} : {min:window.innerWidth-g+16, max:window.innerWidth-w-16};
+  function range(side){
+    var g=gutter();
+    return side<0 ? {min:16, max:Math.max(16,g-BOXW-16)} : {min:window.innerWidth-g+16, max:window.innerWidth-BOXW-16};
   }
   function say(){
-    st.poem=pickPoem(); st.typed=0; st.full=st.poem.join("\n");
+    st.poem=pickPoem(); st.full=st.poem.join("\n"); st.typed=0; st.tt=0;
     box.classList.add("talk");
     if(reduce){ txt.textContent=st.full; st.typed=st.full.length; }
   }
@@ -3099,38 +3033,41 @@ renderNext(); renderAfisha(); labelTables();
     if(document.hidden) return;
     var g=gutter();
     box.hidden = g < 230;
-    if(box.hidden) return;
+    if(box.hidden){ st.last=t; return; }
     var dt=Math.min(64,t-(st.last||t)); st.last=t;
-    var r=placeRange(st.side);
+    var r=range(st.side);
     if(st.mode==="walk"){
       box.classList.remove("talk");
-      if(reduce){ st.mode="read"; st.until=t+9000; say(); return; }
-      if(!st.target) st.target=r.min+Math.random()*(r.max-r.min);
-      var dir=st.target>st.x?1:-1; st.face=dir;
-      st.x+=dir*dt*0.045;
-      if(Math.abs(st.target-st.x)<2){
-        st.x=st.target; st.target=null; st.trips=(st.trips||0)+1;
-        if(st.trips%4===0){ st.side=-st.side; st.x=st.side<0?-W*SC:window.innerWidth; st.target=null; }   /* уходит за край — появляется с другой стороны */
-        else { st.mode="read"; st.until=t+9000; say(); }
+      if(reduce){ st.mode="read"; st.until=t+9000; say(); }
+      else {
+        if(st.target==null) st.target=r.min+Math.random()*(r.max-r.min);
+        var dir=st.target>st.x?1:-1; st.face=dir;
+        st.x+=dir*dt*0.05; st.phase+=dt*0.011;
+        if(Math.abs(st.target-st.x)<2){
+          st.x=st.target; st.target=null; st.trips++;
+          if(st.trips%4===0){ st.side=-st.side; st.x=st.side<0?-BOXW:window.innerWidth; }   /* уходит за край — появляется с другой стороны */
+          else { st.mode="read"; st.until=t+9000; say(); }
+        }
       }
-      st.step+=dt; if(st.step>180){ st.step=0; st.frame=1-st.frame; }
     } else {
-      if(st.typed<st.full.length){ st.tt=(st.tt||0)+dt; while(st.tt>38 && st.typed<st.full.length){ st.tt-=38; st.typed++; } txt.textContent=st.full.slice(0,st.typed); }
-      if(t>st.until){ st.mode="walk"; }
+      if(st.typed<st.full.length){ st.tt+=dt; while(st.tt>38 && st.typed<st.full.length){ st.tt-=38; st.typed++; } txt.textContent=st.full.slice(0,st.typed); }
+      if(t>st.until) st.mode="walk";
     }
-    st.x=Math.max(Math.min(st.x, window.innerWidth-W*SC), -W*SC);
-    var bob = st.mode==="walk" ? (st.frame?-2:0) : 0;
-    box.style.transform="translate("+Math.round(st.x)+"px,"+bob+"px)";
-    var rr=placeRange(st.side), bw=Math.min(300,g-32);
-    bub.style.width=bw+"px";
+    st.x=Math.max(Math.min(st.x, window.innerWidth-BOXW), -BOXW);
+    var walking=st.mode==="walk" && !reduce;
+    box.classList.toggle("reading", !walking);
+    /* шаг: подпрыгивание и лёгкое покачивание; идёт влево — картинка зеркалится */
+    var bob=walking ? -Math.abs(Math.sin(st.phase))*6 : 0, tilt=walking ? Math.sin(st.phase)*2.2 : 0;
+    box.style.transform="translate("+Math.round(st.x)+"px,0)";
+    walkImg.style.transform="translateY("+bob.toFixed(1)+"px) rotate("+tilt.toFixed(2)+"deg) scaleX("+(st.face<0?-1:1)+")";
+    bub.style.width=Math.min(300,g-32)+"px";
     bub.style.left=Math.round((st.side<0?16:window.innerWidth-g+16)-st.x)+"px";
-    draw(st.frame, st.mode==="read", st.mode==="read"?1:st.face);
   }
   function start(){
     if(!enabled() || raf) return;
     if(!box) build();
     reduce=!!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
-    st={side:-1,x:20,mode:"walk",frame:0,step:0,face:1,first:true};
+    st={side:-1,x:20,mode:"walk",face:1,first:true,phase:0,trips:0,target:null};
     box.style.display=""; raf=requestAnimationFrame(tick);
   }
   function stop(){ if(raf) cancelAnimationFrame(raf); raf=0; if(box) box.style.display="none"; }
