@@ -7,6 +7,7 @@
 import base64
 import json
 import os
+import urllib.error
 import urllib.request
 
 import logic
@@ -51,6 +52,12 @@ def kassa_caller(context):
         try:
             with urllib.request.urlopen(req, timeout=110) as r:
                 res = json.loads(r.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:   # касса ответила ошибкой — берём её причину
+            try:
+                res = json.loads(e.read().decode("utf-8"))
+            except Exception:
+                print("kassa:", e)
+                return "касса не ответила"
         except Exception as e:
             print("kassa:", type(e).__name__, e)
             return "касса не ответила"
