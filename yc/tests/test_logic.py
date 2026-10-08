@@ -175,6 +175,28 @@ class LogicTest(unittest.TestCase):
         _, r = req(self.s, op="kassa_refresh", code="org-code")
         self.assertEqual(r["error"], "kassa")
 
+    def test_kassa_push_merges_by_event(self):
+        self.s.put_state("kassa", {"events": [{"id": 1, "date": "2026-10-16", "sold": 0}, {"id": 2, "date": "2026-10-17", "sold": 2}]},
+                         "2026-10-08T05:31:36.000000+00:00", "касса")
+        ev = [{"id": 2, "date": "2026-10-17", "time": "15:00", "venue": "КДЦ Шукты", "sold": 5, "quota": 100, "free": 95, "evil": "x"}]
+        _, r = req(self.s, op="kassa_push", code="org-code", events=ev)
+        self.assertTrue(r["ok"])
+        k = self.s.rows["kassa"]["data"]
+        got = {e["id"]: e for e in k["events"]}
+        self.assertEqual(got[1]["sold"], 0)            # другая учётка не тронута
+        self.assertEqual(got[2]["sold"], 5)
+        self.assertNotIn("evil", got[2])
+        self.assertEqual(k["source"], "закладка")
+        self.assertEqual(self.s.rows["kassa"]["updated_at"], r["kassa_updated_at"])
+
+    def test_kassa_push_rights_and_bad_data(self):
+        ev = [{"id": 1, "date": "2026-10-16", "sold": 1}]
+        self.assertEqual(req(self.s, op="kassa_push", code="kur-code", events=ev)[1]["error"], "read_only")
+        self.assertEqual(req(self.s, op="kassa_push", code="nope", events=ev)[1]["error"], "bad_code")
+        for bad in [[], "x", [{"id": "1", "date": "d"}], [{"date": "d"}], [1]]:
+            st, r = req(self.s, op="kassa_push", code="org-code", events=bad)
+            self.assertEqual((st, r["error"]), (400, "bad_request"), bad)
+
     def test_empty_base(self):
         s = MemStore([("org-code", "editor", "Организатор")])
         _, r = req(s, op="load", code="org-code")

@@ -588,6 +588,11 @@ nav.tabs button[aria-selected="true"]{background:var(--ink);color:var(--bg)}
 .pushkin.talk .ptail{opacity:1}
 @media print{.pushkin{display:none}}
 @media (prefers-reduced-motion: reduce){.pbub,.ptail{transition:none}}
+.pushhelp{flex:1 1 100%;background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:14px 16px;color:var(--ink)}
+.pushhelp b{display:block;font-size:16px;margin-bottom:4px}
+.pushhelp p{margin:4px 0}
+.pushhelp ol{margin:8px 0;padding-left:20px;display:flex;flex-direction:column;gap:8px}
+.pushhelp .pushlink{margin-left:4px;cursor:grab}
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){ .hero .nextc{background:rgba(var(--tint),.72)} }
 .themebtn:focus-visible{outline:2px solid #fff;outline-offset:2px}
 header.top{position:relative}
@@ -935,7 +940,7 @@ var START_SCHOOLS = [
  ["Шуктынская СОШ","Шукты"]
 ];
 
-var SITE_VERSION = "2026-10-06-1";
+var SITE_VERSION = "2026-10-08-1";
 var SB_URL = "https://hyjyfmgskcjijyyblvtg.supabase.co";
 var SB_KEY = "sb_publishable_IRpG1zauJd1OLm36YCB40w_gZr4emDL";
 /* Бэкенд в Yandex Cloud (см. MIGRATION.md). Пусто — старый путь через Supabase (там только чтение). */
@@ -1149,6 +1154,25 @@ function stat(label, big, small, cls){
     small?el("span",{class:"small",text:small}):null
   ]);
 }
+/* Закладка «Продажи → афиша»: работает в кабинете kassir.ru, где организатор вошёл сам */
+var PUSH_HELP=false;
+var PUSH_BOOKMARK="javascript:(function(){var s=document.createElement('script');s.src='https://alievabdulxalik8-del.github.io/afisha-akusha/kassa-push.js?t='+Date.now();document.body.appendChild(s);})();";
+function pushHelp(){
+  var link=el("a",{class:"btn small pushlink",href:PUSH_BOOKMARK,text:"Продажи → афиша",title:"Перетащите эту кнопку на панель закладок браузера",
+    onclick:function(ev){ ev.preventDefault(); alert("Эту кнопку нужно не нажимать, а перетащить мышкой на панель закладок браузера. Нажимать её надо уже в кабинете kassir.ru."); }});
+  return el("div",{class:"pushhelp"},[
+    el("b",{text:"Продажи теперь приносите вы — это минута"}),
+    el("p",{text:"Касса kassir.ru включила проверку «я не робот», поэтому сайт больше не заходит в кабинет сам. Нужна одна закладка в браузере на компьютере."}),
+    el("ol",{},[
+      el("li",{},[el("span",{text:"Один раз: перетащите эту кнопку на панель закладок браузера → "}), link]),
+      el("li",{text:"Зайдите в кабинет new-report.kassir.ru под учёткой Шукты, поставьте галочку «я не робот» и «Запомнить меня»."}),
+      el("li",{text:"Нажмите закладку «Продажи → афиша». Через 10–30 секунд появится «Готово» — цифры уже на сайте. В первый раз закладка спросит код организатора."}),
+      el("li",{text:"Выйдите, зайдите под учёткой Бутри и нажмите закладку ещё раз."})
+    ]),
+    el("p",{class:"snote",text:"Пароль и вход остаются только в вашем браузере — на афишу уходят одни цифры продаж."})
+  ]);
+}
+
 /* «через 3 дня» — сколько осталось до мероприятия */
 function untilText(iso){
   var d=Math.round((Date.parse(iso+"T00:00:00")-Date.parse(todayStr()+"T00:00:00"))/86400000);
@@ -1190,16 +1214,15 @@ function renderNext(){
     var old=(Date.now()-Date.parse(KASSA_AT))>3*3600*1000;
     note.appendChild(el("span",{text:"Продажи с kassir.ru, обновлено "+agoText(KASSA_AT)}));
     if(old) note.appendChild(el("span",{class:"stale",text:"Данные могут быть устаревшими"}));
-    if(YC_URL){
-      var kb=el("button",{class:"btn ghost small kassabtn",id:"kassaBtn",
-        text:KASSA_BUSY?"Обновляю… до минуты":"Обновить из кассы", onclick:kassaRefresh});
-      kb.disabled=KASSA_BUSY; note.appendChild(kb);
-    }
+    /* касса включила «я не робот» — продажи приносит закладка из кабинета, которую нажимает организатор */
+    if(ACCESS.role==="editor") note.appendChild(el("button",{class:"btn ghost small kassabtn",type:"button",
+      "aria-expanded":PUSH_HELP?"true":"false",text:"Как обновить продажи",onclick:function(){ PUSH_HELP=!PUSH_HELP; renderNext(); }}));
   } else if(!ACCESS.role){
     note.appendChild(el("span",{text:"Продажи видны после входа по коду."}));
   } else if(k!==null){
     note.appendChild(el("span",{text:"Продажи вписаны вручную."}));
   }
+  if(ACCESS.role==="editor" && PUSH_HELP) note.appendChild(pushHelp());
   if(ACCESS.role==="editor" && (S.plan[nx.id]||[]).length){
     var b=evBuy(nx.id);
     note.appendChild(el("button",{class:"btn small buybtn",text:"Отметить покупки по школам ("+b.total+" из "+b.plan+")",

@@ -140,6 +140,50 @@ def op_kassa_refresh(store, code, refresh):
     return res
 
 
+PUSH_FIELDS = {"id": int, "name": str, "date": str, "time": str, "venue": str, "state": str,
+               "quota": int, "free": int, "reserved": int, "sold": int, "returned": int, "acc": str}
+
+
+def clean_push(events):
+    """Продажи, присланные закладкой из кабинета кассы: только известные поля нужного типа."""
+    if not isinstance(events, list) or not events or len(events) > 300:
+        return None
+    out = []
+    for e in events:
+        if not isinstance(e, dict) or not isinstance(e.get("id"), int) or not isinstance(e.get("date"), str):
+            return None
+        row = {}
+        for k, t in PUSH_FIELDS.items():
+            v = e.get(k)
+            if isinstance(v, t) and not (t is int and isinstance(v, bool)):
+                row[k] = v[:300] if t is str else v
+        out.append(row)
+    return out
+
+
+def op_kassa_push(store, code, events):
+    """Закладка в кабинете kassir.ru прислала продажи одной учётки: обновляем эти события, остальные не трогаем."""
+    who = check_code(store, code)
+    if not who:
+        return {"ok": False, "error": "bad_code"}
+    if who[0] != "editor":
+        return {"ok": False, "error": "read_only"}
+    rows = clean_push(events)
+    if rows is None:
+        return {"ok": False, "error": "bad_request"}
+
+    def attempt(tx):
+        cur = (tx.state(KASSA_ID) or {}).get("data") or {}
+        by_id = {e.get("id"): e for e in cur.get("events") or []}
+        for r in rows:
+            by_id[r["id"]] = r
+        at = now_iso()
+        tx.put_state(KASSA_ID, {"events": list(by_id.values()), "at": at, "errors": [], "source": "закладка"}, at, who[1])
+        return {"ok": True, "events": len(rows), "sold": sum(r.get("sold", 0) for r in rows), "kassa_updated_at": at}
+
+    return store.in_tx(attempt)
+
+
 MAX_BODY = 2 * 1024 * 1024
 
 
@@ -157,6 +201,9 @@ def handle(store, body_text, refresh=None):
     if op == "load":
         return 200, op_load(store, req.get("code"), req.get("since"), req.get("afisha_since"),
                             req["kassa_since"] if "kassa_since" in req else NOT_SENT)
+    if op == "kassa_push":
+        res = op_kassa_push(store, req.get("code"), req.get("events"))
+        return (400 if res.get("error") == "bad_request" else 200), res
     if op == "kassa_refresh":
         return 200, op_kassa_refresh(store, req.get("code"), refresh)
     if op == "save":
