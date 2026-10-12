@@ -111,11 +111,18 @@
     var evs=parse(html);
     if(!evs.length) throw new Error("не нашёл продажи в отчёте");
     say("Отправляю на афишу…");
+    var today=new Date().toISOString().slice(0,10);
+    var top=evs.slice().sort(function(a,b){ return a.date.localeCompare(b.date); }).filter(function(e){ return e.sold>0 || e.date>=today; })
+      .map(function(e){ return e.date.slice(8,10)+"."+e.date.slice(5,7)+" — "+e.sold+(e.date>=today && e.quota?" из "+e.quota:""); }).join(", ");
     return push(evs).then(function(j){
-      var top=evs.slice().sort(function(a,b){ return a.date.localeCompare(b.date); }).filter(function(e){ return e.sold>0; })
-        .map(function(e){ return e.date.slice(8,10)+"."+e.date.slice(5,7)+" — "+e.sold; }).join(", ");
       done("Готово: "+j.events+" мероприятий, продано "+j.sold+" билетов."+(top?" По датам: "+top+".":"")+
         " Эта учётка — "+(evs[0].acc==="main"?"Шукты":"Бутри")+". Для второй учётки войдите в неё и нажмите закладку ещё раз.");
+    }, function(e){
+      /* сайт афиши недоступен (например, сбой облака) — цифры из кассы всё равно показываем */
+      var why=String(e && e.message || e);
+      if(/код/.test(why)) throw e;
+      fail("Цифры из кассы получил, но сайт афиши сейчас не отвечает — на сайт не отправлено. Нажмите закладку позже ещё раз."+
+        (top?" Продано по датам: "+top+".":""));
     });
   }).catch(function(e){
     var t=String(e && e.message || e);
