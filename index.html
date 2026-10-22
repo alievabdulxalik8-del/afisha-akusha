@@ -943,7 +943,7 @@ var START_SCHOOLS = [
  ["Шуктынская СОШ","Шукты"]
 ];
 
-var SITE_VERSION = "2026-10-09-1";
+var SITE_VERSION = "2026-10-22-1";
 var SB_URL = "https://hyjyfmgskcjijyyblvtg.supabase.co";
 var SB_KEY = "sb_publishable_IRpG1zauJd1OLm36YCB40w_gZr4emDL";
 /* Бэкенд в Yandex Cloud (см. MIGRATION.md). Пусто — старый путь через Supabase (там только чтение). */
@@ -1237,8 +1237,12 @@ function renderNext(){
     note.appendChild(el("span",{text:"Продажи с kassir.ru, обновлено "+agoText(KASSA_AT)}));
     if(old) note.appendChild(el("span",{class:"stale",text:"Данные могут быть устаревшими"}));
     /* касса включила «я не робот» — продажи приносит закладка из кабинета, которую нажимает организатор */
-    if(ACCESS.role==="editor") note.appendChild(el("button",{class:"btn ghost small kassabtn",type:"button",
-      "aria-expanded":PUSH_HELP?"true":"false",text:"Как обновить продажи",onclick:function(){ PUSH_HELP=!PUSH_HELP; renderNext(); }}));
+    if(ACCESS.role==="editor"){
+      note.appendChild(el("a",{class:"btn small kassabtn",href:"https://new-report.kassir.ru/",target:"_blank",rel:"noopener",
+        text:"Обновить",title:"Откроется кабинет kassir.ru — войдите и нажмите закладку «Продажи → афиша»"}));
+      note.appendChild(el("button",{class:"btn ghost small",type:"button",
+        "aria-expanded":PUSH_HELP?"true":"false",text:PUSH_HELP?"Скрыть":"Как?",onclick:function(){ PUSH_HELP=!PUSH_HELP; renderNext(); }}));
+    }
   } else if(!ACCESS.role){
     note.appendChild(el("span",{text:"Продажи видны после входа по коду."}));
   } else if(k!==null){
