@@ -731,9 +731,10 @@ if(DARK_MQ){ var onMq=function(){ if(LOOK.mode==="auto"){ applyLook(); if(window
   </div>
   <div class="panel">
     <h2>Вставить список целиком</h2>
-    <p class="hint">Если список уже есть в Excel или Word: по одной школе в строке, через точку с запятой. Формат: <b>Школа; Село; Учащихся 14+; С картой</b>. Одинаковые названия обновятся, новые добавятся.</p>
+    <p class="hint">Если список уже есть в Excel или Word: по одной школе в строке, через точку с запятой. Формат: <b>Школа; Село; Учащихся 14+; С картой</b>. Школы из списка найдутся, даже если название написано чуть иначе (с «МКОУ», кавычками, без «им. …»). Те, что не нашлись, сайт покажет отдельно — их можно добавить как новые.</p>
     <textarea class="inp" id="bulk" placeholder="Бутринская СОШ; Бутри; 45; 30"></textarea>
     <div class="row"><button class="btn" id="bulkAdd">Добавить из списка</button><span id="bulkMsg" class="ok"></span></div>
+    <div id="bulkNew"></div>
   </div>
 </section>
 
@@ -1513,16 +1514,71 @@ document.getElementById("addSchool").addEventListener("click",function(){
   S.schools.push({id:newId(),name:"Новая школа",village:"",group:"",students:"",cards:""}); save(); renderSchools();
   var rows=document.querySelectorAll("#schoolRows tr"); var last=rows[rows.length-1]; if(last){ var i=last.querySelector("input"); i.focus(); i.select(); }
 });
+/* Вставка списка: школу ищем по «ключу» названия, а не по точному написанию —
+   в таблицах управления образования пишут «МКОУ», кавычки, «им. …», бывают опечатки.
+   Номер (№1, №2) и тип (СОШ, ООШ, лицей, гимназия) должны совпасть обязательно. */
+function scNorm(t){
+  /* \b в JS не видит русские буквы, поэтому режем на слова */
+  var w=normRu(t).replace(/[«»"'“”„]/g," ").replace(/№\s*/g,"№").split(/\s+/).filter(Boolean), out=[];
+  for(var i=0;i<w.length;i++){
+    if(/^(им\.?|имени|им\.[а-я].*)$/.test(w[i]) && i>0) break;
+    if(/^м[кб]оу$/.test(w[i])) continue;
+    out.push(w[i]);
+  }
+  return out.join(" ");
+}
+function scType(n){
+  var w=n.split(/[^а-яa-z]+/), T=["сош","оош","нош","лицей","гимназия","школа"];
+  for(var i=0;i<w.length;i++) if(T.indexOf(w[i])>=0) return w[i];
+  return "";
+}
+function scDigits(n){ return (n.match(/\d+/g)||[]).join(","); }
+function scKey(n){ return n.replace(/[^а-яa-z0-9]/g,""); }
+function lev(a,b){
+  var d=[],i,j; for(i=0;i<=a.length;i++){ d[i]=[i]; }
+  for(j=1;j<=b.length;j++) d[0][j]=j;
+  for(i=1;i<=a.length;i++) for(j=1;j<=b.length;j++)
+    d[i][j]=Math.min(d[i-1][j]+1, d[i][j-1]+1, d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));
+  return d[a.length][b.length];
+}
+function findSchool(name){
+  var n=scNorm(name), t=scType(n), dg=scDigits(n), k=scKey(n);
+  var same=S.schools.filter(function(s){ var m=scNorm(s.name); return scType(m)===t && scDigits(m)===dg; });
+  var hit=same.filter(function(s){ return scKey(scNorm(s.name))===k; });
+  if(hit.length===1) return hit[0];
+  var best=null, bd=99, tie=false;
+  same.forEach(function(s){
+    var d=lev(k, scKey(scNorm(s.name)));
+    if(d<bd){ bd=d; best=s; tie=false; } else if(d===bd) tie=true;
+  });
+  if(best && !tie && bd<=2) return best;
+  /* «В/Мулебкинская» ↔ «Верхне-Мулебкинская»: общий корень длинного слова */
+  var roots=n.split(/[^а-яa-z]+/).filter(function(w){ return w.length>=5 && w!==t; }).map(function(w){ return w.slice(0,6); });
+  var byRoot=same.filter(function(s){ var sk=scKey(scNorm(s.name)); return roots.some(function(r){ return sk.indexOf(r)>=0; }); });
+  return byRoot.length===1 ? byRoot[0] : null;
+}
+var BULK_NEW=[];
+function bulkMsg(text, list){
+  var m=document.getElementById("bulkMsg"); m.textContent=text;
+  var box=document.getElementById("bulkNew"); box.textContent="";
+  if(!list || !list.length) return;
+  box.appendChild(el("p",{class:"snote warn",text:"Не нашёл в списке школ ("+list.length+"): "+list.map(function(p){return p[0];}).join("; ")+". Проверьте название — или добавьте их как новые."}));
+  box.appendChild(el("button",{class:"btn",text:"Добавить их как новые школы",onclick:function(){
+    BULK_NEW.forEach(function(p){ S.schools.push({id:newId(),name:p[0],village:p[1]||"",group:"",students:p[2]||"",cards:p[3]||""}); });
+    var n=BULK_NEW.length; BULK_NEW=[]; save(); renderSchools(); bulkMsg("Добавлено новых школ: "+n);
+  }}));
+}
 document.getElementById("bulkAdd").addEventListener("click",function(){
-  var lines=document.getElementById("bulk").value.split(/\r?\n/), added=0, upd=0;
+  var lines=document.getElementById("bulk").value.split(/\r?\n/), upd=0, seen={};
+  BULK_NEW=[];
   lines.forEach(function(l){
     var p=l.split(/[;\t]/).map(function(x){return x.trim();}); if(!p[0]) return;
-    var ex=S.schools.filter(function(s){return s.name.toLowerCase()===p[0].toLowerCase();})[0];
-    if(ex){ if(p[1]) ex.village=p[1]; if(p[2]) ex.students=p[2]; if(p[3]) ex.cards=p[3]; upd++; }
-    else { S.schools.push({id:newId(),name:p[0],village:p[1]||"",group:"",students:p[2]||"",cards:p[3]||""}); added++; }
+    var ex=findSchool(p[0]);
+    if(ex && !seen[ex.id]){ seen[ex.id]=1; if(p[1]) ex.village=p[1]; if(p[2]) ex.students=p[2]; if(p[3]) ex.cards=p[3]; upd++; }
+    else BULK_NEW.push(p);
   });
-  save(); renderSchools();
-  document.getElementById("bulkMsg").textContent="Добавлено: "+added+", обновлено: "+upd;
+  if(upd){ save(); renderSchools(); }
+  bulkMsg("Обновлено школ: "+upd+(BULK_NEW.length?", не найдено: "+BULK_NEW.length:""), BULK_NEW);
 });
 
 /* Plan */
