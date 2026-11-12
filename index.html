@@ -124,6 +124,7 @@ td.n{text-align:right;white-space:nowrap}
 .warn{color:var(--warn);font-size:14px}
 .ok{color:var(--ok);font-size:14px}
 .kpis{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}
+.kpisrc{margin:-8px 0 16px}
 .kpi{flex:1 1 150px;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
 .kpi b{display:block;font-family:var(--display);font-size:24px}
 .kpi span{color:var(--muted);font-size:14px}
@@ -707,6 +708,7 @@ if(DARK_MQ){ var onMq=function(){ if(LOOK.mode==="auto"){ applyLook(); if(window
 <!-- SCHOOLS -->
 <section id="tab-schools" hidden>
   <div class="kpis" id="schoolKpis"></div>
+  <p class="hint kpisrc" id="schoolSrc" hidden></p>
   <div class="sctools">
     <input class="search" id="scSearch" type="search" placeholder="Поиск: школа, село или директор" aria-label="Поиск по школам">
     <div class="filters" id="scFilter" style="margin:0"></div>
@@ -717,9 +719,9 @@ if(DARK_MQ){ var onMq=function(){ if(LOOK.mode==="auto"){ applyLook(); if(window
 <section id="tab-schooledit" hidden>
   <div class="panel">
     <h2>Школы района</h2>
-    <p class="hint">Стартовый список собран из открытых источников и может быть неполным. Добавьте недостающие школы и укажите, сколько учащихся 14 лет и старше и у скольких есть Пушкинская карта. Поле «Сквад школ» — это группа соседних сёл. Напишите одинаковое название у нескольких школ, например «Бутри», и в плане мероприятий их можно будет добавить все сразу, одной кнопкой. Если поле не заполнено, сквады в плане не появятся.</p>
+    <p class="hint">Стартовый список собран из открытых источников и может быть неполным. Добавьте недостающие школы и укажите, сколько учащихся 14–18 лет и у скольких есть Пушкинская карта. Поле «Сквад школ» — это группа соседних сёл. Напишите одинаковое название у нескольких школ, например «Бутри», и в плане мероприятий их можно будет добавить все сразу, одной кнопкой. Если поле не заполнено, сквады в плане не появятся.</p>
     <div class="tablewrap"><table>
-      <thead><tr><th>Школа</th><th>Село</th><th>Сквад школ</th><th>Учащихся 14+</th><th>С картой</th><th></th></tr></thead>
+      <thead><tr><th>Школа</th><th>Село</th><th>Сквад школ</th><th>Учащихся 14–18 лет</th><th>С картой</th><th></th></tr></thead>
       <tbody id="schoolRows"></tbody>
       <tfoot><tr class="totals"><td colspan="3">Итого</td><td class="n" id="sumStud"></td><td class="n" id="sumCards"></td><td></td></tr></tfoot>
     </table></div>
@@ -770,6 +772,7 @@ if(DARK_MQ){ var onMq=function(){ if(LOOK.mode==="auto"){ applyLook(); if(window
 <!-- WATCH: то, что видит наблюдатель -->
 <section id="tab-watch" hidden>
   <div class="kpis" id="wKpis"></div>
+  <p class="hint kpisrc" id="wSrc" hidden></p>
   <div class="row">
     <button class="btn" id="wPrint">Распечатать отчёт</button>
     <span class="snote" style="flex:1 1 100%">Сводка по выдаче карт и выездам одной страницей — можно распечатать или показать с экрана.</span>
@@ -943,7 +946,7 @@ var START_SCHOOLS = [
  ["Шуктынская СОШ","Шукты"]
 ];
 
-var SITE_VERSION = "2026-10-22-1";
+var SITE_VERSION = "2026-11-12-1";
 var SB_URL = "https://hyjyfmgskcjijyyblvtg.supabase.co";
 var SB_KEY = "sb_publishable_IRpG1zauJd1OLm36YCB40w_gZr4emDL";
 /* Бэкенд в Yandex Cloud (см. MIGRATION.md). Пусто — старый путь через Supabase (там только чтение). */
@@ -955,6 +958,15 @@ var SYNC = {at:null, by:null, dirty:false, busy:false, err:null, conflict:null, 
 var AFISHA_AT = null;
 /* продажи из кабинета kassir.ru — их раз в полчаса записывает функция afisha-kassa */
 var KASSA = null, KASSA_AT = null;
+/* откуда цифры по учащимся и картам: приходит вместе с афишей (site.cards = {src, date}) */
+var CARDS_SRC = null;
+function showCardsSrc(id){
+  var p=document.getElementById(id), c=CARDS_SRC; if(!p) return;
+  if(!c || !c.src){ p.hidden=true; return; }
+  var d=String(c.date||"").split("-");
+  p.textContent="Учащиеся 14–18 лет и Пушкинские карты — по данным "+c.src+(d.length===3 ? " на "+d[2]+"."+d[1]+"."+d[0] : "")+".";
+  p.hidden=false;
+}
 function freshState(){
   return {
     schools: START_SCHOOLS.map(function(s,i){return {id:"s"+(i+1), name:s[0], village:s[1], group:"", students:"", cards:""};}),
@@ -1491,9 +1503,10 @@ function schoolTotals(){
   var k=document.getElementById("schoolKpis"); k.textContent="";
   var sq=[];
   S.schools.forEach(function(s){ var g=groupOf(s); if(g && sq.indexOf(g)<0) sq.push(g); });
-  [[S.schools.length,"школ в списке"],[sq.length,"сквадов задано"],[filled+" из "+S.schools.length,"заполнено карт"],[st,"учащихся 14+"],[cd,"с Пушкинской картой"],[st?Math.round(cd/st*100)+"%":"—","охват картами · без карты "+Math.max(0,st-cd)]].forEach(function(x){
+  [[S.schools.length,"школ в списке"],[sq.length,"сквадов задано"],[filled+" из "+S.schools.length,"заполнено карт"],[st,"учащихся 14–18 лет"],[cd,"с Пушкинской картой"],[st?Math.round(cd/st*100)+"%":"—","охват картами · без карты "+Math.max(0,st-cd)]].forEach(function(x){
     k.appendChild(el("div",{class:"kpi"},[el("b",{text:String(x[0])}),el("span",{text:x[1]})]));
   });
+  showCardsSrc("schoolSrc");
 }
 function newId(){ return "s"+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
 document.getElementById("addSchool").addEventListener("click",function(){
@@ -2199,6 +2212,7 @@ function wKpis(){
   ].forEach(function(x){
     k.appendChild(el("div",{class:"kpi"},[el("b",{text:String(x[0])}),el("span",{text:x[1]})]));
   });
+  showCardsSrc("wSrc");
 }
 
 function wCard(title, meta, rows, seats, unknown, evId){
@@ -2733,6 +2747,7 @@ function checkVersion(af){
 
 function applyAfisha(af){
   checkVersion(af);
+  CARDS_SRC = (af && af.site && af.site.cards) || null;
   if(!af || !af.events || !af.events.length) return false;
   EVENTS = af.events;
   if(af.venues) VENUES = af.venues;
