@@ -947,7 +947,7 @@ var START_SCHOOLS = [
  ["Шуктынская СОШ","Шукты"]
 ];
 
-var SITE_VERSION = "2026-11-12-2";
+var SITE_VERSION = "2026-11-12-3";
 var SB_URL = "https://hyjyfmgskcjijyyblvtg.supabase.co";
 var SB_KEY = "sb_publishable_IRpG1zauJd1OLm36YCB40w_gZr4emDL";
 /* Бэкенд в Yandex Cloud (см. MIGRATION.md). Пусто — старый путь через Supabase (там только чтение). */
@@ -965,9 +965,15 @@ function showCardsSrc(id){
   var p=document.getElementById(id), c=CARDS_SRC; if(!p) return;
   if(!c || !c.src){ p.hidden=true; return; }
   var d=String(c.date||"").split("-");
-  p.textContent="Учащиеся 14–18 лет и Пушкинские карты — по данным "+c.src+(d.length===3 ? " на "+d[2]+"."+d[1]+"."+d[0] : "")+".";
+  var when=d.length===3 ? " на "+d[2]+"."+d[1]+"."+d[0] : "", sum=0;
+  S.schools.forEach(function(s){ sum+=num(s.students); });
+  p.textContent = num(c.students)>0
+    ? "Учащихся 14–18 лет в районе — "+num(c.students)+" по данным "+c.src+when+(sum && sum!==num(c.students) ? " (в сводке по школам — "+sum+")" : "")+". Пушкинские карты — по школам."
+    : "Учащиеся 14–18 лет и Пушкинские карты — по данным "+c.src+when+".";
   p.hidden=false;
 }
+/* общее число учащихся района: если оно задано вместе с источником — берём его, иначе сумму по школам */
+function studentsTotal(sum){ var c=CARDS_SRC; return c && num(c.students)>0 ? num(c.students) : sum; }
 function freshState(){
   return {
     schools: START_SCHOOLS.map(function(s,i){return {id:"s"+(i+1), name:s[0], village:s[1], group:"", students:"", cards:""};}),
@@ -1498,6 +1504,7 @@ document.getElementById("scSearch").addEventListener("input", renderSchoolCards)
 function schoolTotals(){
   var st=0, cd=0;
   S.schools.forEach(function(s){ st+=num(s.students); cd+=num(s.cards); });
+  st=studentsTotal(st);
   document.getElementById("sumStud").textContent=st;
   document.getElementById("sumCards").textContent=cd;
   var filled=S.schools.filter(function(s){return s.cards!=="";}).length;
@@ -2246,6 +2253,7 @@ function wTotals(){
     var a=num(x.students), c=num(x.cards);
     st+=a; cards+=c; if(a>0 && c===0) zero++;
   });
+  st=studentsTotal(st);
   return {pupils:pupils, went:ids.length, students:st, cards:cards,
           noCards:Math.max(0,st-cards), zero:zero,
           issue: st?Math.round(cards/st*100):0,
