@@ -947,10 +947,8 @@ var START_SCHOOLS = [
  ["Шуктынская СОШ","Шукты"]
 ];
 
-var SITE_VERSION = "2026-11-12-3";
-var SB_URL = "https://hyjyfmgskcjijyyblvtg.supabase.co";
-var SB_KEY = "sb_publishable_IRpG1zauJd1OLm36YCB40w_gZr4emDL";
-/* Бэкенд в Yandex Cloud (см. MIGRATION.md). Пусто — старый путь через Supabase (там только чтение). */
+var SITE_VERSION = "2026-11-23-1";
+/* Бэкенд — функция в Yandex Cloud (см. MIGRATION.md) */
 var YC_URL = "https://functions.yandexcloud.net/d4e8n3j9esf1uq386ik3";
 var KEY = "akusha-pk-plan-v1";
 var CODE_KEY = "akusha-pk-code";
@@ -2735,18 +2733,11 @@ function api(fn, body, done, wait){
     try{ if(ctrl) ctrl.abort(); }catch(e){}
     finish({timeout:true});
   }, wait||API_TIMEOUT);
-  var url, opts;
-  if(YC_URL){
-    /* text/plain — простой запрос, браузер не шлёт лишний OPTIONS */
-    var q={op: fn==="afisha_save" ? "save" : fn==="kassa_refresh" ? "kassa_refresh" : "load", code: body.p_code};
-    if(fn==="afisha_save"){ q.data=body.p_data; q.since=body.p_since; }
-    else if(body.since!==undefined){ q.since=body.since; q.afisha_since=body.afisha_since; q.kassa_since=body.kassa_since; }
-    url=YC_URL; opts={method:"POST", headers:{"Content-Type":"text/plain;charset=UTF-8"}, body:JSON.stringify(q)};
-  } else {
-    var b={}; for(var k in body){ if(k.indexOf("p_")===0) b[k]=body[k]; }
-    url=SB_URL+"/rest/v1/rpc/"+fn;
-    opts={method:"POST", headers:{"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY,"Content-Type":"application/json"}, body:JSON.stringify(b)};
-  }
+  /* text/plain — простой запрос, браузер не шлёт лишний OPTIONS */
+  var q={op: fn==="afisha_save" ? "save" : fn==="kassa_refresh" ? "kassa_refresh" : "load", code: body.p_code};
+  if(fn==="afisha_save"){ q.data=body.p_data; q.since=body.p_since; }
+  else if(body.since!==undefined){ q.since=body.since; q.afisha_since=body.afisha_since; q.kassa_since=body.kassa_since; }
+  var url=YC_URL, opts={method:"POST", headers:{"Content-Type":"text/plain;charset=UTF-8"}, body:JSON.stringify(q)};
   opts.signal = ctrl ? ctrl.signal : undefined;
   fetch(url, opts).then(function(r){
     return r.text().then(function(t){

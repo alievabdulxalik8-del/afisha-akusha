@@ -1,12 +1,10 @@
 # Переезд бэкенда афиши: Supabase → Yandex Cloud
 
-Статус: **переключено 29.09.2026 (этап 3).** Сайт `2026-09-29-1` работает на Yandex Cloud.
-В Supabase `afisha_save` отвечает `read_only` всем (миграция `afisha_save_read_only_moved_to_yandex`),
-данные там — копия на момент переключения, неделю держим как запасную.
-
-**Откат (если что-то не так):** вернуть в `index.html` `YC_URL = ""` и прежнюю `SITE_VERSION`; в Supabase
-выполнить `yc/supabase_rollback.sql` (прежнее тело `afisha_save`).
-Правки, сделанные уже в Яндексе, перед этим забрать через `afisha-admin` (`get_state`).
+Статус: **переключено 29.09.2026, Supabase отключён 23.11.2026.** Сайт работает только с Yandex Cloud:
+в `index.html` нет ни адреса, ни ключа Supabase, `afisha-admin` больше не читает Supabase,
+команда `copy` и сверка с Supabase из `deploy.py` убраны, `supabase_rollback.sql` удалён.
+Старый проект Supabase `hyjyfmgskcjijyyblvtg` поставлен на паузу. Откат на Supabase больше не предусмотрен.
+Ниже — история переезда, для справки.
 
 Функция `afisha-api`: https://functions.yandexcloud.net/d4e8n3j9esf1uq386ik3
 

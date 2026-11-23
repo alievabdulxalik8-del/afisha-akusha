@@ -8,8 +8,7 @@ YC_KEY_ID, YC_SA_ID, YC_PRIVATE_KEY. Ничего секретного скри�
     python3 yc/deploy.py check        # ключ работает, каталог виден
     python3 yc/deploy.py setup        # YDB, таблицы, СА afisha-fn, функция (повторный запуск безопасен)
     python3 yc/deploy.py deploy       # только новая версия функции
-    AFISHA_CODE_EDITOR=… AFISHA_CODE_VIEWER=… python3 yc/deploy.py copy     # копия данных из Supabase
-    AFISHA_CODE_EDITOR=… AFISHA_CODE_VIEWER=… python3 yc/deploy.py verify   # сверка с Supabase и проверки
+    AFISHA_CODE_EDITOR=… AFISHA_CODE_VIEWER=… python3 yc/deploy.py verify   # проверки функции (без записи)
     python3 yc/deploy.py set-events events.json   # заменить афишу (строка events)
 
 Коды доступа в YDB попадают только хешем; в выводе их нет.
@@ -39,8 +38,6 @@ KASSA_TIMER = "afisha-kassa-timer"
 # каждые 30 минут с 7:00 до 23:30 по Москве (время в cron — UTC)
 KASSA_CRON = "*/30 4-20 ? * * *"
 TRIGGERS = "https://serverless-triggers.api.cloud.yandex.net/triggers/v1"
-SB_URL = "https://hyjyfmgskcjijyyblvtg.supabase.co"
-SB_KEY = "sb_publishable_IRpG1zauJd1OLm36YCB40w_gZr4emDL"  # публичный, тот же, что в index.html
 SITE_ORIGIN = "https://alievabdulxalik8-del.github.io"
 
 IAM = "https://iam.api.cloud.yandex.net/iam/v1"
@@ -258,11 +255,6 @@ def fn_url(fn):
 
 # ---------- данные ----------
 
-def sb_load(code):
-    # до supabase.co из среды Claude прокси не пускает — читаем через afisha-admin из облака
-    return admin({"op": "sb_load", "code": code})["sb"]
-
-
 def codes():
     out = []
     for env in ("AFISHA_CODE_EDITOR", "AFISHA_CODE_VIEWER"):
@@ -271,23 +263,6 @@ def codes():
             sys.exit("нужна переменная " + env)
         out.append(c)
     return out
-
-
-def copy_data():
-    ed, vw = codes()
-    a, v = sb_load(ed), sb_load(vw)
-    if not (a.get("ok") and a.get("role") == "editor" and v.get("ok") and v.get("role") == "viewer"):
-        sys.exit("Supabase не принял коды или роли не те (editor/viewer)")
-    b64 = lambda x: base64.b64encode(x).decode()
-    for rid, code, j in (("editor", ed, a), ("viewer", vw, v)):
-        salt = os.urandom(16)
-        admin({"op": "put_access", "id": rid, "salt": b64(salt), "hash": b64(logic.hash_code(code, salt)),
-               "role": j["role"], "label": j["label"]})
-    for sid, data, at, by in (("akusha", a["data"], a["updated_at"], a["updated_by"]),
-                              ("events", a["afisha"], a["afisha_updated_at"], None)):
-        admin({"op": "put_state", "id": sid, "data": data, "updated_at": at, "updated_by": by})
-    print("скопировано: коды (хешем), akusha %d Б, events %d Б" % (
-        len(json.dumps(a["data"], ensure_ascii=False).encode()), len(json.dumps(a["afisha"], ensure_ascii=False).encode())))
 
 
 def set_events(path):
@@ -320,13 +295,9 @@ def verify(fn):
             fails.append(name)
 
     for code, role in ((ed, "editor"), (vw, "viewer")):
-        s = sb_load(code)
         r, y = yc({"op": "load", "code": code})
-        check("%s: вход, роль и подпись" % role, y and y.get("ok") and (y["role"], y["label"]) == (s["role"], s["label"]))
-        check("%s: данные совпадают побайтно (канонический JSON)" % role, y and canon(y["data"]) == canon(s["data"]))
-        check("%s: афиша совпадает" % role, y and canon(y["afisha"]) == canon(s["afisha"]))
-        check("%s: отметки времени совпадают" % role, y and (y["updated_at"], y["afisha_updated_at"], y["updated_by"]) ==
-              (s["updated_at"], s["afisha_updated_at"], s["updated_by"]))
+        check("%s: вход и роль" % role, y and y.get("ok") and y["role"] == role)
+        check("%s: данные и афиша на месте" % role, y and isinstance(y.get("data"), dict) and isinstance(y.get("afisha"), dict))
     r, y = yc({"op": "load", "code": vw})
     r2, p = yc({"op": "load", "code": vw, "since": y["updated_at"], "afisha_since": y["afisha_updated_at"]})
     check("опрос: «без изменений» без данных", p and p.get("unchanged") is True and "data" not in p)
@@ -365,8 +336,6 @@ def main():
                        {"KASSA_URL": fn_url(kassa)})
         if cmd == "setup":
             ensure_tables()
-    elif cmd == "copy":
-        copy_data()
     elif cmd == "verify":
         verify(find(FN_API + "/functions", "functions", FN_NAME) or sys.exit("нет функции, сначала setup"))
     elif cmd == "kassa-code":   # перевыложить код функции кассы — СОТРЁТ вписанные в консоли логины и пароли
